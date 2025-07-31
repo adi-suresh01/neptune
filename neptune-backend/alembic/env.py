@@ -1,32 +1,33 @@
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
 from alembic import context
 import os
 import sys
-from pathlib import Path
 
-# Add the parent directory to Python's path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add your app directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'app'))
 
 # Import your models
-from app.db.database import Base
-from app.db.models import FileSystem, Folder  # Import all your models
+from db.models import Base
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # this is the Alembic Config object
 config = context.config
 
-# Override with DATABASE_URL environment variable
-def get_url():
-    return os.getenv("DATABASE_URL")
-
-# Update the URL in config
-config.set_main_option("sqlalchemy.url", get_url())
+# Set the database URL from environment
+config.set_main_option('sqlalchemy.url', os.getenv('DATABASE_URL'))
 
 # Interpret the config file for Python logging
-fileConfig(config.config_file_name)
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 
-# Set metadata target
+# Set target metadata
 target_metadata = Base.metadata
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

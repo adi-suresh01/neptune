@@ -1,14 +1,7 @@
 # File: /neptune-backend/neptune-backend/app/db/__init__.py
 
-from .database import engine, SessionLocal
+# Keep this simple to avoid circular imports
+from .database import engine, SessionLocal, get_db
 from .models import Base
 
-def init_db():
-    Base.metadata.create_all(bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+__all__ = ["engine", "SessionLocal", "get_db", "Base"]

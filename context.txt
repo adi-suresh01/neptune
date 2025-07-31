@@ -1,0 +1,19 @@
+We were inspired by note-taking apps like Notion, Obsidian, and Evernote and how they allow users to link pages to one another. However, our team noticed a common pain point where users often find themselves spending time trying to capture the main idea from lengthy notes and often get lost in how it relates to other ideas. Our team wanted to find a solution that prioritizes an efficient environment that allows learners to have a visual overview of their knowledge base.
+
+What it does
+Neptune allows users to create an automated and AI-powered concept map of their notes. It draws from the key topics and connects them across notes.
+
+How we built it
+Our team used a Next.js, FastAPI, and PostgreSQL tech stack. In the backend, we utilized a GPT model, coupled with prompt engineering, to extract keywords from the user's notes. We chose this model because it can efficiently extract the semantic meaning and infer topics based on overall concepts compared to other models. From there, we used the same model to cluster notes under similar topics, and draw relationships between them--generating relationship strength based on the note contents. This is then translated into a graph data structure, which is displayed on the user interface.
+
+Challenges we ran into
+A roadblock we encountered was deciding which model to use, since many models overlap in strengths and weaknesses. However, with thorough research, we were able to narrow it down to the GPT model for its superior ability to understand natural languages. Another difficulty we experienced was fine-tuning the prompt to get the right amount of generalization across the topics.
+
+Accomplishments that we're proud of
+Our team is proud of the progress we have made over a short amount of time. It was each member's first time learning about natural language processing techniques, and we were able to build the product we envisioned.
+
+What we learned
+Our team learned about the array of popular natural language processing models available. We felt that by taking the time to weigh each model's pros and cons, we were not only able to make a sound decision for our project, but also learn about the specific characteristics of each model.
+
+What's next for Neptune
+A feature we can implement in the future is parameters that allow users to tailor their knowledge map to their preferences. For example, the users can choose how connected or sparse, specific or broad they want their map to be. Another improvement would be to have a customizable map, giving users the freedom to personalize the graph's appearance. Lastly, Neptune has the potential to create mappings from topics to exact sources in the note files, allowing users to quickly navigate through their knowledge base.

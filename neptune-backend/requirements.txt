@@ -1,7 +1,42 @@
-fastapi
-uvicorn
-sqlalchemy
-asyncpg
-pydantic
-alembic
-python-dotenv
+# Core FastAPI and server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+asyncpg>=0.28.0
+alembic>=1.12.0
+
+# Environment and configuration
+python-dotenv>=1.0.0
+pydantic>=2.4.0
+
+# HTTP requests (for Ollama)
+requests>=2.31.0
+
+# Knowledge Graph and Visualization
+networkx>=3.2.0
+matplotlib>=3.7.0
+plotly>=5.17.0
+
+# Text Processing and ML
+keybert>=0.8.0
+transformers>=4.35.0
+torch>=2.1.0
+sentence-transformers>=2.2.0
+
+# Data processing
+numpy>=1.24.0
+pandas>=2.1.0
+scikit-learn>=1.3.0
+
+# Additional utilities
+python-multipart>=0.0.6
+jinja2>=3.1.0
+aiofiles>=23.2.0
+
+# Development and testing (optional)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.25.0

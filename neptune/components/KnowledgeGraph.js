@@ -12,8 +12,34 @@ import { Loader2 } from "lucide-react";
 const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = false, onClick, id }) => {
   const materialRef = useRef();
   const glowRef = useRef();
+  const dragRef = useRef(false);
+  const startPosRef = useRef([0, 0]);
   
-  // Animation for pulsing effect
+  const handlePointerDown = (e) => {
+    dragRef.current = false;
+    startPosRef.current = [e.clientX, e.clientY];
+    e.stopPropagation();
+  };
+  
+  const handlePointerUp = (e) => {
+    const dx = Math.abs(e.clientX - startPosRef.current[0]);
+    const dy = Math.abs(e.clientY - startPosRef.current[1]);
+    const isDrag = dx > 3 || dy > 3;
+    
+    if (!isDrag && !dragRef.current) {
+      onClick(id);
+    }
+    
+    e.stopPropagation();
+  };
+  
+  const handlePointerMove = (e) => {
+    if (Math.abs(e.clientX - startPosRef.current[0]) > 3 || 
+        Math.abs(e.clientY - startPosRef.current[1]) > 3) {
+      dragRef.current = true;
+    }
+  };
+
   useFrame(({ clock }) => {
     if (materialRef.current) {
       const pulse = Math.sin(clock.getElapsedTime() * 0.8) * 0.05 + 1;
@@ -26,8 +52,11 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
   });
 
   return (
-    <group position={position} onClick={(e) => { e.stopPropagation(); onClick(id); }}>
-      {/* Outer glow sphere */}
+    <group position={position} 
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerMove={handlePointerMove}
+    >
       <mesh ref={glowRef}>
         <sphereGeometry args={[nodeSize * 1.3, 16, 16]} />
         <meshBasicMaterial 
@@ -38,7 +67,6 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
         />
       </mesh>
       
-      {/* Main node sphere */}
       <mesh>
         <sphereGeometry args={[nodeSize, 32, 32]} />
         <meshStandardMaterial 
@@ -51,7 +79,6 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
         />
       </mesh>
       
-      {/* Text label */}
       <Billboard follow={true} lockX={false} lockY={false} lockZ={false}>
         <Text
           position={[0, -nodeSize * 1.8, 0]}
@@ -70,39 +97,34 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
   );
 };
 
-// Edge component creating cosmic ray connections between nodes
+// Edge component - same as your existing implementation
 const Edge = ({ start, end, strength = 0.5 }) => {
   const lineRef = useRef();
   const particlesRef = useRef();
   const lineGeometryRef = useRef();
-  const particleCount = Math.floor(50 * Math.max(0.2, strength));
   
-  // Create points for the line
+  const particleCount = Math.floor(100 * Math.max(0.3, strength));
+  
   const points = useMemo(() => {
     const startVec = new THREE.Vector3(start[0], start[1], start[2]);
     const endVec = new THREE.Vector3(end[0], end[1], end[2]);
     
-    // Create a slightly curved line
     const midPoint = new THREE.Vector3().lerpVectors(startVec, endVec, 0.5);
-    midPoint.y += 5 * (1 - strength); // Add some curve based on strength
+    const distance = startVec.distanceTo(endVec);
+    midPoint.y += 2 * (1 - strength) * Math.min(10, distance/10); 
     
-    const curve = new THREE.QuadraticBezierCurve3(
-      startVec,
-      midPoint,
-      endVec
-    );
-    
+    const curve = new THREE.QuadraticBezierCurve3(startVec, midPoint, endVec);
     return curve.getPoints(20);
   }, [start, end, strength]);
   
-  // Create particle positions along the curve
   const particlePositions = useMemo(() => {
     const positions = new Float32Array(particleCount * 3);
     const curve = new THREE.QuadraticBezierCurve3(
       new THREE.Vector3(start[0], start[1], start[2]),
       new THREE.Vector3(
         (start[0] + end[0]) / 2,
-        ((start[1] + end[1]) / 2) + 5 * (1 - strength),
+        ((start[1] + end[1]) / 2) + 2 * (1 - strength) * Math.min(10, 
+        Math.sqrt(Math.pow(end[0]-start[0], 2) + Math.pow(end[1]-start[1], 2) + Math.pow(end[2]-start[2], 2))/10),
         (start[2] + end[2]) / 2
       ),
       new THREE.Vector3(end[0], end[1], end[2])
@@ -119,31 +141,51 @@ const Edge = ({ start, end, strength = 0.5 }) => {
     return positions;
   }, [start, end, particleCount, strength]);
   
-  // Particle sizes based on strength
   const particleSizes = useMemo(() => {
     const sizes = new Float32Array(particleCount);
     for (let i = 0; i < particleCount; i++) {
-      sizes[i] = Math.random() * 1.5 * strength + 0.5;
+      sizes[i] = Math.random() * 2.5 * strength + 0.8;
     }
     return sizes;
   }, [particleCount, strength]);
   
-  // Animate particles flowing along the connection
+  const particleColors = useMemo(() => {
+    const colors = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      const t = Math.random();
+      colors[i * 3] = 0.7 + 0.3 * t;
+      colors[i * 3 + 1] = 0.7 + 0.3 * t;
+      colors[i * 3 + 2] = 1.0;
+    }
+    return colors;
+  }, [particleCount]);
+  
   useFrame(({ clock }) => {
     if (particlesRef.current && lineGeometryRef.current) {
-      const time = clock.getElapsedTime() * strength;
+      const time = clock.getElapsedTime() * Math.max(0.4, strength);
       const positions = particlesRef.current.attributes.position.array;
+      const sizes = particlesRef.current.attributes.size.array;
+      
+      if (lineRef.current) {
+        const pulse = Math.sin(time * 2) * 0.2 + 0.8;
+        lineRef.current.material.opacity = Math.max(0.2, pulse * strength);
+      }
+      
+      const waveSpeed = time * 1.5;
+      const waveWidth = 0.1;
       
       for (let i = 0; i < particleCount; i++) {
-        // Calculate position along curve with offset
-        const t = ((i / particleCount) + (time * 0.2)) % 1;
+        const baseT = ((i / particleCount) + (time * 0.2)) % 1;
+        const t = baseT;
         
         const point = new THREE.Vector3();
         const curve = new THREE.QuadraticBezierCurve3(
           new THREE.Vector3(start[0], start[1], start[2]),
           new THREE.Vector3(
             (start[0] + end[0]) / 2,
-            ((start[1] + end[1]) / 2) + 5 * (1 - strength),
+            ((start[1] + end[1]) / 2) + 2 * (1 - strength) * 
+              Math.min(10, Math.sqrt(Math.pow(end[0]-start[0], 2) + 
+              Math.pow(end[1]-start[1], 2) + Math.pow(end[2]-start[2], 2))/10),
             (start[2] + end[2]) / 2
           ),
           new THREE.Vector3(end[0], end[1], end[2])
@@ -151,18 +193,28 @@ const Edge = ({ start, end, strength = 0.5 }) => {
         
         point.copy(curve.getPoint(t));
         
+        const jitter = 0.2;
+        point.x += (Math.random() - 0.5) * jitter * strength;
+        point.y += (Math.random() - 0.5) * jitter * strength;
+        point.z += (Math.random() - 0.5) * jitter * strength;
+        
         positions[i * 3] = point.x;
         positions[i * 3 + 1] = point.y;
         positions[i * 3 + 2] = point.z;
+        
+        const wave = Math.sin((baseT * 10 + waveSpeed) * Math.PI * 2);
+        const waveInfluence = Math.max(0, 1 - Math.abs(wave) / waveWidth);
+        
+        sizes[i] = Math.random() * 1.5 * strength + 0.5 + waveInfluence * 2.5;
       }
       
       particlesRef.current.attributes.position.needsUpdate = true;
+      particlesRef.current.attributes.size.needsUpdate = true;
     }
   });
   
   return (
     <group>
-      {/* Base connection line */}
       <line ref={lineRef}>
         <bufferGeometry ref={lineGeometryRef}>
           <bufferAttribute
@@ -173,14 +225,32 @@ const Edge = ({ start, end, strength = 0.5 }) => {
           />
         </bufferGeometry>
         <lineBasicMaterial 
-          color={strength > 0.7 ? "#ffffff" : "#4b92ff"}
+          color={strength > 0.7 ? "#ffffff" : "#73a7ff"}
           transparent
-          opacity={Math.max(0.2, strength * 0.8)}
+          opacity={Math.max(0.3, strength * 0.9)}
           linewidth={1}
+          blending={THREE.AdditiveBlending}
         />
       </line>
       
-      {/* Flowing particles along connection */}
+      <line>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={points.length}
+            array={new Float32Array(points.flatMap(p => [p.x, p.y, p.z]))}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <lineBasicMaterial 
+          color="#ffffff"
+          transparent
+          opacity={0.6}
+          linewidth={1}
+          blending={THREE.AdditiveBlending}
+        />
+      </line>
+      
       <points>
         <bufferGeometry ref={particlesRef}>
           <bufferAttribute
@@ -195,12 +265,18 @@ const Edge = ({ start, end, strength = 0.5 }) => {
             array={particleSizes}
             itemSize={1}
           />
+          <bufferAttribute
+            attach="attributes-color"
+            count={particleCount}
+            array={particleColors}
+            itemSize={3}
+          />
         </bufferGeometry>
         <pointsMaterial
           size={2}
-          color={strength > 0.7 ? "#ffffff" : "#4b92ff"}
+          vertexColors
           transparent
-          opacity={strength * 0.9}
+          opacity={Math.min(1.0, strength * 2)}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
           sizeAttenuation
@@ -210,63 +286,79 @@ const Edge = ({ start, end, strength = 0.5 }) => {
   );
 };
 
-// Main scene component that sets up and renders the graph
+// GraphScene component
 const GraphScene = ({ data, onSelectNode }) => {
   const [selectedNode, setSelectedNode] = useState(null);
-  const boundsApi = useBounds();
+  const { scene, camera } = useThree();
   
-  // Set up the scene with black background and subtle ambient light
-  const { scene } = useThree();
   useEffect(() => {
     scene.background = new THREE.Color('#050A1C');
   }, [scene]);
   
-  // Handle node selection with focus animation
+  const focusOnNode = (position) => {
+    if (!position) return;
+    
+    const target = new THREE.Vector3(position[0], position[1], position[2]);
+    const start = new THREE.Vector3().copy(camera.position);
+    
+    const duration = 1000;
+    const startTime = Date.now();
+    
+    function animate() {
+      const now = Date.now();
+      const progress = Math.min((now - startTime) / duration, 1);
+      const easeProgress = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+      
+      const distance = 30;
+      const direction = new THREE.Vector3().copy(target).sub(camera.position).normalize();
+      const targetPosition = new THREE.Vector3().copy(target).sub(direction.multiplyScalar(distance));
+      
+      camera.position.lerpVectors(start, targetPosition, easeProgress);
+      camera.lookAt(target);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    }
+    
+    animate();
+  };
+  
   const handleNodeClick = (nodeId) => {
     setSelectedNode(nodeId === selectedNode ? null : nodeId);
     
     if (nodeId !== selectedNode) {
-      // Find the node position to focus on it
       const node = data.nodes.find(n => n.id === nodeId);
       
-      // Add null check here to prevent the error
-      if (boundsApi && node && node.position) {
-        boundsApi.refresh().fit().to({
-          position: new THREE.Vector3(...node.position),
-          normal: new THREE.Vector3(0, 0, 1)
-        });
+      if (node && node.position) {
+        focusOnNode(node.position);
       }
       
-      // Call external handler if provided
       if (onSelectNode) {
         onSelectNode(nodeId);
       }
     }
   };
-  
+
   return (
-    <Bounds fit clip observe margin={1.4}>
-      {/* Create subtle ambient light and directional light */}
+    <group>
       <ambientLight intensity={0.2} />
       <directionalLight position={[10, 10, 5]} intensity={0.7} />
       
-      {/* Add some background stars */}
       <Stars />
       
-      {/* Render all nodes */}
       {data.nodes.map((node) => (
         <Node
           key={node.id}
           id={node.id}
           position={node.position}
           label={node.label}
-          nodeSize={(node.size / 50) + 1} // Scale size appropriately
+          nodeSize={(node.size / 50) + 1}
           selected={selectedNode === node.id}
           onClick={handleNodeClick}
         />
       ))}
       
-      {/* Render all connections/edges */}
       {data.links.map((link, index) => {
         const sourceNode = data.nodes.find(n => n.id === link.source);
         const targetNode = data.nodes.find(n => n.id === link.target);
@@ -283,12 +375,11 @@ const GraphScene = ({ data, onSelectNode }) => {
         );
       })}
       
-      {/* Post-processing effects for glow */}
       <EffectComposer>
         <Bloom 
-          luminanceThreshold={0.2} 
+          luminanceThreshold={0.1}
           luminanceSmoothing={0.9} 
-          intensity={1.5} 
+          intensity={1.8}
           mipmapBlur
         />
         <Vignette
@@ -298,7 +389,7 @@ const GraphScene = ({ data, onSelectNode }) => {
           blendFunction={BlendFunction.NORMAL}
         />
       </EffectComposer>
-    </Bounds>
+    </group>
   );
 };
 
@@ -321,7 +412,6 @@ const Stars = () => {
     return positions;
   }, [count]);
   
-  // Animate subtle star twinkling
   useFrame(({ clock }) => {
     if (particlesRef.current) {
       particlesRef.current.rotation.y = clock.getElapsedTime() * 0.02;
@@ -351,7 +441,7 @@ const Stars = () => {
   );
 };
 
-// Main Knowledge Graph component that fetches data and renders the 3D graph
+// Main Knowledge Graph component
 function KnowledgeGraph() {
   const [data, setData] = useState({ nodes: [], links: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -360,7 +450,10 @@ function KnowledgeGraph() {
 
   // Process fetched data to add positions to nodes
   const processGraphData = (data) => {
-    // Calculate 3D positions for nodes in a spherical layout
+    if (!data.nodes || data.nodes.length === 0) {
+      return { nodes: [], links: [] };
+    }
+
     const nodes = data.nodes.map((node, index) => {
       const phi = Math.acos(-1 + (2 * index) / data.nodes.length);
       const theta = Math.sqrt(data.nodes.length * Math.PI) * phi;
@@ -373,12 +466,14 @@ function KnowledgeGraph() {
       return {
         ...node,
         position: [x, y, z],
-        // Ensure size is a number (default to node size or note count)
-        size: node.size || node.noteCount * 20 || 30
+        // Use proper fallback for size
+        size: node.size || (node.note_ids && node.note_ids.length * 20) || 30,
+        // Ensure we have a proper label
+        label: node.topic || node.label || 'Unknown Topic'
       };
     });
     
-    return { nodes, links: data.links };
+    return { nodes, links: data.links || [] };
   };
 
   // Fetch knowledge graph data from backend
@@ -387,15 +482,20 @@ function KnowledgeGraph() {
       setIsLoading(true);
       setError(null);
       
+      console.log('Fetching knowledge graph...');
       const response = await fetch('http://localhost:8000/api/knowledge-graph');
+      
       if (!response.ok) {
-        throw new Error(`Failed to fetch knowledge graph: ${response.status}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const rawData = await response.json();
+      console.log('Raw graph data:', rawData);
       
       // Process data to add 3D positions
       const processedData = processGraphData(rawData);
+      console.log('Processed graph data:', processedData);
+      
       setData(processedData);
     } catch (err) {
       console.error("Error fetching knowledge graph:", err);
@@ -409,15 +509,22 @@ function KnowledgeGraph() {
   const handleRefreshGraph = async () => {
     try {
       setRefreshing(true);
+      console.log('Refreshing knowledge graph...');
+      
       const response = await fetch('http://localhost:8000/api/knowledge-graph/refresh', {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to refresh graph: ${response.status}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const rawData = await response.json();
+      console.log('Refreshed graph data:', rawData);
+      
       const processedData = processGraphData(rawData);
       setData(processedData);
     } catch (err) {
@@ -436,7 +543,7 @@ function KnowledgeGraph() {
   // Handle node selection
   const handleSelectNode = (nodeId) => {
     console.log(`Selected node: ${nodeId}`);
-    // You can add more functionality here, like showing notes related to this topic
+    // Future: Show related notes or additional info
   };
 
   // Show loading state
@@ -454,11 +561,36 @@ function KnowledgeGraph() {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-[#050a1c] text-red-400">
         <p>Error loading knowledge graph: {error}</p>
+        <div className="mt-4 space-x-4">
+          <button 
+            className="px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800 transition"
+            onClick={fetchKnowledgeGraph}
+          >
+            Retry
+          </button>
+          <button 
+            className="px-4 py-2 bg-green-900 text-white rounded hover:bg-green-800 transition"
+            onClick={handleRefreshGraph}
+          >
+            Force Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state
+  if (!data.nodes || data.nodes.length === 0) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-[#050a1c] text-gray-400">
+        <p>No knowledge graph available</p>
+        <p className="text-sm mt-2">Add some notes to generate your knowledge map</p>
         <button 
           className="mt-4 px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800 transition"
-          onClick={fetchKnowledgeGraph}
+          onClick={handleRefreshGraph}
+          disabled={refreshing}
         >
-          Retry
+          {refreshing ? 'Generating...' : 'Generate Graph'}
         </button>
       </div>
     );
@@ -466,15 +598,18 @@ function KnowledgeGraph() {
 
   return (
     <div className="w-full h-screen bg-[#050a1c] relative">
-      {/* Refresh button */}
-      <div className="absolute top-4 right-4 z-10">
+      {/* Control buttons */}
+      <div className="absolute top-4 right-4 z-10 space-x-2">
         <button
           onClick={handleRefreshGraph}
           disabled={refreshing}
-          className="px-3 py-1 bg-blue-700 rounded text-sm text-white hover:bg-blue-600 transition"
+          className="px-3 py-1 bg-blue-700 rounded text-sm text-white hover:bg-blue-600 transition disabled:opacity-50"
         >
           {refreshing ? 'Refreshing...' : 'Refresh Graph'}
         </button>
+        <div className="text-xs text-gray-400 mt-1">
+          {data.nodes.length} topics, {data.links.length} connections
+        </div>
       </div>
       
       {/* Three.js canvas */}

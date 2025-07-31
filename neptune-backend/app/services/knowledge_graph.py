@@ -6,7 +6,7 @@ from datetime import datetime
 
 from app.services.llm_service import extract_topics_from_notes
 from app.services.visualize_topics import create_topic_graph, graph_to_frontend_format
-from app.db.models import FileSystem  # Import your file system model
+from app.db.models import FileSystem
 from app.db.database import get_db
 
 # Cache for the latest graph data
