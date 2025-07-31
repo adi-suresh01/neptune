@@ -1,31 +1,25 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from openai import OpenAI
 import os
 import itertools
 from dotenv import load_dotenv
-from .llm_service import extract_topics_from_notes
+from .llm_service import extract_topics_from_notes, get_llm_response
 from typing import List, Dict, Any, Tuple
 
 # Load environment variables
 load_dotenv()
 
-def find_topic_relationships(topics: List[str], client: OpenAI = None) -> List[Tuple[str, str, float]]:
+def find_topic_relationships(topics: List[str]) -> List[Tuple[str, str, float]]:
     """
-    Find relationships between topics using the OpenAI API with a generous approach.
+    Find relationships between topics using Ollama LLM.
     
     Args:
         topics: List of topic strings
-        client: Optional OpenAI client, will create one if not provided
         
     Returns:
         List of tuples (topic1, topic2, strength) representing edges
     """
-    if client is None:
-        api_key = os.getenv("OPENAI_API_KEY")
-        client = OpenAI(api_key=api_key)
-    
     # No need to find relationships if there are too few topics
     if len(topics) < 2:
         return []
@@ -33,84 +27,39 @@ def find_topic_relationships(topics: List[str], client: OpenAI = None) -> List[T
     # Generate all possible pairs of topics
     topic_pairs = list(itertools.combinations(topics, 2))
     
-    # Create a prompt asking to rate each specific pair
-    topic_pairs_text = "\n".join([f"- {pair[0]} and {pair[1]}" for pair in topic_pairs])
+    # For each pair, ask Ollama to rate the relationship
+    edges = []
     
-    prompt = f"""
-    I have a set of topics from which I want to build a knowledge graph. I need to identify EVERY possible 
-    connection between these topics, even if the relationship is tenuous or indirect.
-    
-    Please rate the relationship strength between each of the following topic pairs on a scale from 0.1 to 1.0:
-    
-    {topic_pairs_text}
-    
-    Instructions:
-    - Be generous with connections - find ANY logical connection, no matter how slight
-    - A rating of 0.1 means very weakly related but still connected
-    - A rating of 1.0 means strongly related
-    - Consider ANY type of relationship: subjects taught together, historical connections, conceptual overlap,
-      shared methods, complementary ideas, or topics that might appear in the same text or course
-    
-    Format your response as a JSON object with pairs as keys and strength as values:
-    {{
-        "{topics[0]}-{topics[1]}": 0.7,
-        "{topics[0]}-{topics[2]}": 0.3,
-        ...
-    }}
-    """
-    
-    print("Finding relationships between topics...")
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=1500,
-            response_format={"type": "json_object"}
-        )
+    for topic1, topic2 in topic_pairs:
+        prompt = f"""
+        Rate the relationship strength between these two topics on a scale from 0.1 to 1.0:
+        Topic 1: {topic1}
+        Topic 2: {topic2}
         
-        import json
-        content = response.choices[0].message.content
-        result = json.loads(content)
+        Consider ANY type of relationship: subjects taught together, historical connections, 
+        conceptual overlap, shared methods, complementary ideas, or topics that might appear 
+        in the same text or course.
         
-        # Convert the pair-based format to our tuple format
-        edges = []
-        for pair_key, strength in result.items():
-            try:
-                # Try to split by hyphen first
-                if '-' in pair_key:
-                    topic1, topic2 = pair_key.split('-')
-                # Otherwise try other formats
-                elif ' and ' in pair_key:
-                    topic1, topic2 = pair_key.split(' and ')
-                else:
-                    continue
-                    
-                topic1 = topic1.strip()
-                topic2 = topic2.strip()
-                
-                if topic1 in topics and topic2 in topics:
-                    edges.append((topic1, topic2, float(strength)))
-            except:
-                # If any error occurs, just skip this pair
-                continue
+        Be generous with connections - find ANY logical connection, no matter how slight.
+        - 0.1 means very weakly related but still connected
+        - 1.0 means strongly related
         
-        # If we didn't get any edges, create default relationships
-        if not edges:
-            for t1, t2 in topic_pairs:
-                edges.append((t1, t2, 0.3))  # Default modest relationship
-                
-        print(f"Found {len(edges)} relationships between topics")
-        return edges
+        Respond with ONLY a number between 0.1 and 1.0, nothing else.
+        """
+        
+        try:
+            response = get_llm_response(prompt)
+            # Extract number from response
+            strength = float(response.strip())
+            # Ensure it's in valid range
+            strength = max(0.1, min(1.0, strength))
+            edges.append((topic1, topic2, strength))
+        except:
+            # Default relationship if parsing fails
+            edges.append((topic1, topic2, 0.3))
     
-    except Exception as e:
-        print(f"Error finding topic relationships: {e}")
-        # Create default relationships if there's an error
-        edges = []
-        for t1, t2 in topic_pairs:
-            edges.append((t1, t2, 0.3))  # Default modest relationship
-        print(f"Created {len(edges)} default relationships between topics")
-        return edges
+    print(f"Found {len(edges)} relationships between topics")
+    return edges
 
 def create_topic_graph(topics_data: List[Dict[str, Any]]) -> nx.Graph:
     """
@@ -208,7 +157,7 @@ def visualize_graph_plotly(G: nx.Graph, filename: str = "topic_graph.html"):
         name="Relationships"
     )
     
-    # Create figure - FIX: Update title format to modern Plotly style
+    # Create figure
     fig = go.Figure(
         data=[edge_trace, node_trace],
         layout=go.Layout(
