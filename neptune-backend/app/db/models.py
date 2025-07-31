@@ -8,11 +8,11 @@ Base = declarative_base()
 
 class FileSystem(Base):
     __tablename__ = "filesystem"
-    __table_args__ = {'extend_existing': True}  # This allows table redefinition
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
-    path = Column(String(500), nullable=False, unique=True)
+    path = Column(String(500), nullable=True)  # Changed to nullable=True
     type = Column(String(50), nullable=False)  # 'file' or 'folder'
     parent_id = Column(Integer, ForeignKey('filesystem.id'), nullable=True)
     content = Column(Text, nullable=True)  # For file content
