@@ -175,8 +175,12 @@ def visualize_graph_plotly(G: nx.Graph, filename: str = "topic_graph.html"):
         )
     )
     
-    # Save interactive HTML
-    fig.write_html(filename)
+    # Create output directory
+    import os
+    os.makedirs("outputs", exist_ok=True)
+
+    # Save to outputs directory instead
+    fig.write_html(f"outputs/{filename}")
     print(f"Interactive graph saved to {filename}")
     
     return fig
