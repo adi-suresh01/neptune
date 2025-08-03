@@ -7,7 +7,7 @@ import NotesDisplay from "@/components/NotesDisplay";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Folder, File, EarthIcon as PlanetIcon } from "lucide-react";
+import { Folder, File, EarthIcon as PlanetIcon, FileText, Network } from "lucide-react";
 
 export interface FileSystemItem {
   id: number;
@@ -29,8 +29,11 @@ const Home = () => {
   const [showFileForm, setShowFileForm] = useState(false);
   const [folder, setFolder] = useState("");
   const [file, setFile] = useState("");
-  const [showGraph, setShowGraph] = useState(false);
-  const [showNotes, setShowNotes] = useState(true);
+  
+  // CHANGE: Default to showing graph first (was false before)
+  const [showGraph, setShowGraph] = useState(true);
+  const [showNotes, setShowNotes] = useState(false);
+  
   const [parent, setParent] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -102,7 +105,7 @@ const Home = () => {
     setShowFileForm(false);
   };
 
-  // Update handleItemClick to include the item name
+  // Update handleItemClick to include the item name and switch to notes view
   const handleItemClick = (item: FileSystemItem) => {
     setSelectedItem({
       id: item.id,
@@ -112,18 +115,59 @@ const Home = () => {
 
     if (item.type === "folder") {
       setParent(item.id);
+    } else if (item.type === "file") {
+      // When selecting a file, switch to notes view automatically
+      setShowGraph(false);
+      setShowNotes(true);
     }
   };
 
+  // UPDATED: Better toggle function with clearer states
   const handleDisplayGraph = () => {
     setShowGraph(!showGraph);
     setShowNotes(!showNotes);
   };
 
+  // NEW: Separate functions for direct navigation
+  const showKnowledgeGraph = () => {
+    setShowGraph(true);
+    setShowNotes(false);
+  };
+
+  const showNotesView = () => {
+    setShowGraph(false);
+    setShowNotes(true);
+  };
+
   return (
     <div className="flex h-screen bg-gray-900 text-gray-100">
+      {/* Sidebar */}
       <div className="w-70 border-r border-gray-700 flex flex-col">
+        {/* Header with view toggle */}
         <div className="p-4 border-b border-gray-700">
+          {/* NEW: View Toggle Buttons */}
+          <div className="flex space-x-2 mb-4">
+            <Button
+              onClick={showKnowledgeGraph}
+              variant={showGraph ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+            >
+              <Network className="w-4 h-4 mr-2" />
+              Graph
+            </Button>
+            <Button
+              onClick={showNotesView}
+              variant={showNotes ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Notes
+            </Button>
+          </div>
+
+          {/* File/Folder creation buttons */}
           <div className="flex space-x-2 mb-4">
             <Button
               onClick={() => setShowFolderForm(true)}
@@ -206,6 +250,7 @@ const Home = () => {
           </h2>
         </div>
 
+        {/* File system display */}
         <div className="flex-1 overflow-auto">
           <FileSystemDisplay
             key={refreshKey}
@@ -214,16 +259,23 @@ const Home = () => {
           />
         </div>
 
-        <Button
-          onClick={handleDisplayGraph}
-          variant="ghost"
-          className="m-4 flex items-center justify-center"
-        >
-          <PlanetIcon className="w-5 h-5 mr-2" />
-          {showGraph ? "Show Notes" : "Show Graph"}
-        </Button>
+        {/* UPDATED: Better bottom toggle */}
+        <div className="p-4 border-t border-gray-700">
+          <div className="text-xs text-gray-400 mb-2">
+            Current View: {showGraph ? "Knowledge Graph" : "Notes Editor"}
+          </div>
+          <Button
+            onClick={handleDisplayGraph}
+            variant="ghost"
+            className="w-full flex items-center justify-center"
+          >
+            <PlanetIcon className="w-5 h-5 mr-2" />
+            {showGraph ? "Switch to Notes" : "Switch to Graph"}
+          </Button>
+        </div>
       </div>
 
+      {/* Main content area */}
       <div className="flex-1 flex">
         {showNotes && (
           <div className="flex-1">
@@ -232,7 +284,8 @@ const Home = () => {
         )}
 
         {showGraph && (
-          <div className="flex-1 bg-white">
+          <div className="flex-1">
+            {/* FIXED: Remove bg-white to let KnowledgeGraph handle its own background */}
             <KnowledgeGraph />
           </div>
         )}

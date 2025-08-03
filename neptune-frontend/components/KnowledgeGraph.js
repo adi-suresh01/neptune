@@ -2,13 +2,13 @@
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Text, Billboard, Bounds, useBounds } from '@react-three/drei';
+import { OrbitControls, Text, Billboard } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw, Zap, Network } from "lucide-react";
 
-// Node component representing a topic in 3D space
+// Node component - same as before
 const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = false, onClick, id }) => {
   const materialRef = useRef();
   const glowRef = useRef();
@@ -20,7 +20,7 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
     startPosRef.current = [e.clientX, e.clientY];
     e.stopPropagation();
   };
-  
+
   const handlePointerUp = (e) => {
     const dx = Math.abs(e.clientX - startPosRef.current[0]);
     const dy = Math.abs(e.clientY - startPosRef.current[1]);
@@ -32,7 +32,7 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
     
     e.stopPropagation();
   };
-  
+
   const handlePointerMove = (e) => {
     if (Math.abs(e.clientX - startPosRef.current[0]) > 3 || 
         Math.abs(e.clientY - startPosRef.current[1]) > 3) {
@@ -97,14 +97,14 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
   );
 };
 
-// Edge component - same as your existing implementation
+// Edge component - same as before (keeping existing implementation)
 const Edge = ({ start, end, strength = 0.5 }) => {
   const lineRef = useRef();
   const particlesRef = useRef();
   const lineGeometryRef = useRef();
   
   const particleCount = Math.floor(100 * Math.max(0.3, strength));
-  
+
   const points = useMemo(() => {
     const startVec = new THREE.Vector3(start[0], start[1], start[2]);
     const endVec = new THREE.Vector3(end[0], end[1], end[2]);
@@ -116,20 +116,21 @@ const Edge = ({ start, end, strength = 0.5 }) => {
     const curve = new THREE.QuadraticBezierCurve3(startVec, midPoint, endVec);
     return curve.getPoints(20);
   }, [start, end, strength]);
-  
+
   const particlePositions = useMemo(() => {
     const positions = new Float32Array(particleCount * 3);
     const curve = new THREE.QuadraticBezierCurve3(
       new THREE.Vector3(start[0], start[1], start[2]),
       new THREE.Vector3(
         (start[0] + end[0]) / 2,
-        ((start[1] + end[1]) / 2) + 2 * (1 - strength) * Math.min(10, 
-        Math.sqrt(Math.pow(end[0]-start[0], 2) + Math.pow(end[1]-start[1], 2) + Math.pow(end[2]-start[2], 2))/10),
+        ((start[1] + end[1]) / 2) + 2 * (1 - strength) * 
+        Math.min(10, Math.sqrt(Math.pow(end[0]-start[0], 2) + 
+        Math.pow(end[1]-start[1], 2) + Math.pow(end[2]-start[2], 2))/10),
         (start[2] + end[2]) / 2
       ),
       new THREE.Vector3(end[0], end[1], end[2])
     );
-    
+
     for (let i = 0; i < particleCount; i++) {
       const t = i / particleCount;
       const point = curve.getPoint(t);
@@ -137,10 +138,9 @@ const Edge = ({ start, end, strength = 0.5 }) => {
       positions[i * 3 + 1] = point.y;
       positions[i * 3 + 2] = point.z;
     }
-    
     return positions;
-  }, [start, end, particleCount, strength]);
-  
+  }, [start, end, strength, particleCount]);
+
   const particleSizes = useMemo(() => {
     const sizes = new Float32Array(particleCount);
     for (let i = 0; i < particleCount; i++) {
@@ -148,7 +148,7 @@ const Edge = ({ start, end, strength = 0.5 }) => {
     }
     return sizes;
   }, [particleCount, strength]);
-  
+
   const particleColors = useMemo(() => {
     const colors = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount; i++) {
@@ -159,7 +159,7 @@ const Edge = ({ start, end, strength = 0.5 }) => {
     }
     return colors;
   }, [particleCount]);
-  
+
   useFrame(({ clock }) => {
     if (particlesRef.current && lineGeometryRef.current) {
       const time = clock.getElapsedTime() * Math.max(0.4, strength);
@@ -184,8 +184,8 @@ const Edge = ({ start, end, strength = 0.5 }) => {
           new THREE.Vector3(
             (start[0] + end[0]) / 2,
             ((start[1] + end[1]) / 2) + 2 * (1 - strength) * 
-              Math.min(10, Math.sqrt(Math.pow(end[0]-start[0], 2) + 
-              Math.pow(end[1]-start[1], 2) + Math.pow(end[2]-start[2], 2))/10),
+            Math.min(10, Math.sqrt(Math.pow(end[0]-start[0], 2) + 
+            Math.pow(end[1]-start[1], 2) + Math.pow(end[2]-start[2], 2))/10),
             (start[2] + end[2]) / 2
           ),
           new THREE.Vector3(end[0], end[1], end[2])
@@ -212,7 +212,7 @@ const Edge = ({ start, end, strength = 0.5 }) => {
       particlesRef.current.attributes.size.needsUpdate = true;
     }
   });
-  
+
   return (
     <group>
       <line ref={lineRef}>
@@ -228,24 +228,6 @@ const Edge = ({ start, end, strength = 0.5 }) => {
           color={strength > 0.7 ? "#ffffff" : "#73a7ff"}
           transparent
           opacity={Math.max(0.3, strength * 0.9)}
-          linewidth={1}
-          blending={THREE.AdditiveBlending}
-        />
-      </line>
-      
-      <line>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            count={points.length}
-            array={new Float32Array(points.flatMap(p => [p.x, p.y, p.z]))}
-            itemSize={3}
-          />
-        </bufferGeometry>
-        <lineBasicMaterial 
-          color="#ffffff"
-          transparent
-          opacity={0.6}
           linewidth={1}
           blending={THREE.AdditiveBlending}
         />
@@ -294,7 +276,7 @@ const GraphScene = ({ data, onSelectNode }) => {
   useEffect(() => {
     scene.background = new THREE.Color('#050A1C');
   }, [scene]);
-  
+
   const focusOnNode = (position) => {
     if (!position) return;
     
@@ -393,7 +375,7 @@ const GraphScene = ({ data, onSelectNode }) => {
   );
 };
 
-// Background stars component
+// Background stars component - same as before
 const Stars = () => {
   const particlesRef = useRef();
   const count = 5000;
@@ -411,14 +393,14 @@ const Stars = () => {
     }
     return positions;
   }, [count]);
-  
+
   useFrame(({ clock }) => {
     if (particlesRef.current) {
       particlesRef.current.rotation.y = clock.getElapsedTime() * 0.02;
       particlesRef.current.rotation.z = clock.getElapsedTime() * 0.01;
     }
   });
-  
+
   return (
     <points ref={particlesRef}>
       <bufferGeometry>
@@ -441,12 +423,13 @@ const Stars = () => {
   );
 };
 
-// Main Knowledge Graph component
+// Main Knowledge Graph component with auto-loading
 function KnowledgeGraph() {
   const [data, setData] = useState({ nodes: [], links: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState({ cached: false, fresh: false });
 
   // Process fetched data to add positions to nodes
   const processGraphData = (data) => {
@@ -466,9 +449,7 @@ function KnowledgeGraph() {
       return {
         ...node,
         position: [x, y, z],
-        // Use proper fallback for size
         size: node.size || (node.note_ids && node.note_ids.length * 20) || 30,
-        // Ensure we have a proper label
         label: node.topic || node.label || 'Unknown Topic'
       };
     });
@@ -476,27 +457,39 @@ function KnowledgeGraph() {
     return { nodes, links: data.links || [] };
   };
 
-  // Fetch knowledge graph data from backend
-  const fetchKnowledgeGraph = async () => {
+  // Fetch knowledge graph data with smart caching
+  const fetchKnowledgeGraph = async (force = false) => {
     try {
       setIsLoading(true);
       setError(null);
       
-      console.log('Fetching knowledge graph...');
-      const response = await fetch('http://localhost:8000/api/knowledge-graph');
+      console.log(`${force ? 'Force fetching' : 'Auto-loading'} knowledge graph...`);
+      
+      // Always try to get cached data first (instant)
+      const response = await fetch('http://localhost:8000/api/knowledge-graph/');
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const rawData = await response.json();
-      console.log('Raw graph data:', rawData);
+      console.log('Graph data received:', rawData);
       
-      // Process data to add 3D positions
-      const processedData = processGraphData(rawData);
-      console.log('Processed graph data:', processedData);
+      // Check if we got actual data or empty state
+      if (rawData.nodes && rawData.nodes.length > 0) {
+        const processedData = processGraphData(rawData);
+        setData(processedData);
+        setCacheStatus({ cached: true, fresh: !force });
+      } else if (force) {
+        // If forcing and no data, try to generate
+        console.log('No cached data found, generating fresh...');
+        await handleRefreshGraph();
+      } else {
+        // Show empty state with option to generate
+        setData({ nodes: [], links: [] });
+        setCacheStatus({ cached: false, fresh: false });
+      }
       
-      setData(processedData);
     } catch (err) {
       console.error("Error fetching knowledge graph:", err);
       setError(err instanceof Error ? err.message : "Failed to load knowledge graph");
@@ -505,11 +498,11 @@ function KnowledgeGraph() {
     }
   };
 
-  // Refresh the graph data
+  // Refresh the graph data (force generation)
   const handleRefreshGraph = async () => {
     try {
       setRefreshing(true);
-      console.log('Refreshing knowledge graph...');
+      console.log('Force generating knowledge graph...');
       
       const response = await fetch('http://localhost:8000/api/knowledge-graph/refresh', {
         method: 'POST',
@@ -523,10 +516,12 @@ function KnowledgeGraph() {
       }
       
       const rawData = await response.json();
-      console.log('Refreshed graph data:', rawData);
+      console.log('Fresh graph data generated:', rawData);
       
       const processedData = processGraphData(rawData);
       setData(processedData);
+      setCacheStatus({ cached: true, fresh: true });
+      
     } catch (err) {
       console.error("Error refreshing knowledge graph:", err);
       setError(err instanceof Error ? err.message : "Failed to refresh graph");
@@ -535,9 +530,9 @@ function KnowledgeGraph() {
     }
   };
 
-  // Load data on component mount
+  // Auto-load on component mount
   useEffect(() => {
-    fetchKnowledgeGraph();
+    fetchKnowledgeGraph(false); // Try cached first
   }, []);
 
   // Handle node selection
@@ -550,8 +545,10 @@ function KnowledgeGraph() {
   if (isLoading) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-[#050a1c]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-        <span className="ml-2 text-blue-400">Loading knowledge graph...</span>
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+          <span className="text-blue-400">Loading your knowledge graph...</span>
+        </div>
       </div>
     );
   }
@@ -560,11 +557,11 @@ function KnowledgeGraph() {
   if (error) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-[#050a1c] text-red-400">
-        <p>Error loading knowledge graph: {error}</p>
-        <div className="mt-4 space-x-4">
+        <p className="mb-4">Error loading knowledge graph: {error}</p>
+        <div className="space-x-4">
           <button 
             className="px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800 transition"
-            onClick={fetchKnowledgeGraph}
+            onClick={() => fetchKnowledgeGraph(false)}
           >
             Retry
           </button>
@@ -583,33 +580,52 @@ function KnowledgeGraph() {
   if (!data.nodes || data.nodes.length === 0) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-[#050a1c] text-gray-400">
-        <p>No knowledge graph available</p>
-        <p className="text-sm mt-2">Add some notes to generate your knowledge map</p>
+        <Network className="w-16 h-16 mb-4 text-gray-500" />
+        <p className="text-lg mb-2">No knowledge graph available</p>
+        <p className="text-sm mb-4">Add some notes to generate your knowledge map</p>
         <button 
-          className="mt-4 px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800 transition"
+          className="px-6 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition flex items-center space-x-2"
           onClick={handleRefreshGraph}
           disabled={refreshing}
         >
-          {refreshing ? 'Generating...' : 'Generate Graph'}
+          {refreshing ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Generating...</span>
+            </>
+          ) : (
+            <>
+              <Zap className="w-4 h-4" />
+              <span>Generate Knowledge Graph</span>
+            </>
+          )}
         </button>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-screen bg-[#050a1c] relative">
+    <div className="w-full h-full bg-[#050a1c] relative">
+      {/* Status indicator */}
+      <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2">
+        <div className="text-white text-sm font-medium">
+          {cacheStatus.fresh ? '✨ Fresh Knowledge Graph' : '⚡ Cached Knowledge Graph'}
+        </div>
+        <div className="text-xs text-gray-400 mt-1">
+          {data.nodes.length} topics, {data.links.length} connections
+        </div>
+      </div>
+
       {/* Control buttons */}
       <div className="absolute top-4 right-4 z-10 space-x-2">
         <button
           onClick={handleRefreshGraph}
           disabled={refreshing}
-          className="px-3 py-1 bg-blue-700 rounded text-sm text-white hover:bg-blue-600 transition disabled:opacity-50"
+          className="px-3 py-1 bg-blue-700 rounded text-sm text-white hover:bg-blue-600 transition disabled:opacity-50 flex items-center space-x-1"
         >
-          {refreshing ? 'Refreshing...' : 'Refresh Graph'}
+          <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
+          <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
         </button>
-        <div className="text-xs text-gray-400 mt-1">
-          {data.nodes.length} topics, {data.links.length} connections
-        </div>
       </div>
       
       {/* Three.js canvas */}

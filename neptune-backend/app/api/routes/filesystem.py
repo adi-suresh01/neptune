@@ -5,10 +5,10 @@ from app.db.models import FileSystem
 from app.schemas.file_system import FileSystemItem, FileSystemCreate, FileSystemUpdate, FileSystemListResponse
 from pydantic import BaseModel
 from datetime import datetime
-from app.services.knowledge_graph import schedule_knowledge_graph_update
 from typing import Dict, Any
 
 router = APIRouter()
+
 class ContentUpdate(BaseModel):
     content: str
 
@@ -54,7 +54,7 @@ async def get_file_system(parent_id: int = None, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=FileSystemItem)
 async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(get_db)):
-    """Create a new file or folder"""
+    """Create a new file or folder - INSTANT, NO OLLAMA"""
     db_item = FileSystem(
         name=item.name,
         type=item.type,
@@ -64,6 +64,8 @@ async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
+    
+    # Return immediately - NO background processing
     return FileSystemItem(
         id=db_item.id,
         name=db_item.name,
@@ -76,10 +78,9 @@ async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(
 async def update_file_content(
     item_id: int, 
     data: dict, 
-    background_tasks: BackgroundTasks,  # Add this parameter
     db: Session = Depends(get_db)
 ):
-    """Update file content and trigger knowledge graph update"""
+    """Update file content - INSTANT SAVE, NO OLLAMA"""
     content = data.get("content")
     if content is None:
         raise HTTPException(status_code=400, detail="Content field is required")
@@ -90,18 +91,13 @@ async def update_file_content(
     if db_item.type != "file":
         raise HTTPException(status_code=400, detail="Cannot set content for folders")
     
-    # Update the content
+    # INSTANT SAVE - NO BACKGROUND TASKS
     db_item.content = content
     db_item.updated_at = datetime.utcnow()
-    
-    # Commit changes
     db.commit()
     db.refresh(db_item)
     
-    # Schedule knowledge graph update in the background
-    schedule_knowledge_graph_update(background_tasks, db)
-    
-    # Return the updated item
+    # Return immediately - user sees instant save
     return FileSystemItem(
         id=db_item.id,
         name=db_item.name,
@@ -127,10 +123,9 @@ async def get_file_by_id(item_id: int, db: Session = Depends(get_db)):
 @router.delete("/{item_id}", response_model=Dict[str, Any])
 async def delete_file_system_item(
     item_id: int,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """Delete a file or folder and trigger knowledge graph update"""
+    """Delete a file or folder - INSTANT, NO OLLAMA"""
     # Find the item in the database
     db_item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
     if not db_item:
@@ -142,12 +137,8 @@ async def delete_file_system_item(
         if children > 0:
             raise HTTPException(status_code=400, detail="Cannot delete folder with children")
     
-    # Delete the item
+    # Delete the item instantly
     db.delete(db_item)
     db.commit()
-    
-    # Schedule knowledge graph update in the background to reflect the removal
-    from app.services.knowledge_graph import schedule_knowledge_graph_update
-    schedule_knowledge_graph_update(background_tasks, db)
     
     return {"success": True, "message": f"Item {item_id} deleted successfully"}
