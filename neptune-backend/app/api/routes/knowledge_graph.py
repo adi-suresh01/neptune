@@ -5,22 +5,28 @@ router = APIRouter()
 
 @router.get("/")
 async def get_knowledge_graph():
-    """Get knowledge graph data - always try cached first"""
+    """Get knowledge graph data - ALWAYS INSTANT (cached only)"""
     try:
-        from app.services.knowledge_graph import get_latest_graph_data
+        from app.services.knowledge_graph import get_latest_graph_data, get_generation_status
         
-        # Always return cached data if available (instant response)
+        # Always return cached data immediately (NEVER blocks)
         graph_data = get_latest_graph_data()
+        status = get_generation_status()
         
         # Return whatever we have (cached or empty)
         if graph_data.get("nodes"):
-            return graph_data
+            return {
+                **graph_data,
+                "status": status,
+                "cached": True
+            }
         else:
-            # Return empty with metadata
+            # Return empty with status
             return {
                 "nodes": [], 
                 "links": [], 
-                "message": "No cached knowledge graph. Generate one from your notes.",
+                "message": "No cached knowledge graph. Click 'Generate' to create one.",
+                "status": status,
                 "cached": False
             }
         
@@ -35,36 +41,62 @@ async def get_knowledge_graph():
 
 @router.post("/refresh")
 async def refresh_knowledge_graph():
-    """FIXED: Use sync version to avoid event loop conflicts"""
+    """FIXED: Start generation in background - RETURNS IMMEDIATELY"""
     try:
-        from app.services.knowledge_graph import generate_knowledge_graph_from_db, invalidate_cache
+        from app.services.knowledge_graph import start_background_generation, invalidate_cache, get_generation_status
         
-        print("🔄 Force generating fresh knowledge graph...")
+        status = get_generation_status()
+        
+        # Check if already generating
+        if status["is_generating"]:
+            return {
+                "message": "Knowledge graph generation already in progress",
+                "status": status,
+                "generating": True
+            }
+        
+        print("🔄 Starting background knowledge graph generation...")
         invalidate_cache()
         
-        # Use sync version (NO async complications)
-        graph_data = generate_knowledge_graph_from_db()
+        # Start background generation (RETURNS IMMEDIATELY)
+        start_background_generation()
         
-        # Add metadata
-        if not graph_data.get("error"):
-            graph_data["cached"] = False
-            graph_data["fresh"] = True
-            graph_data["generated_at"] = "just_now"
-        
-        return graph_data
+        return {
+            "message": "Knowledge graph generation started in background",
+            "status": {"is_generating": True, "progress": "starting"},
+            "generating": True,
+            "note": "Check /api/knowledge-graph/status for progress"
+        }
         
     except Exception as e:
-        print(f"Error refreshing knowledge graph: {e}")
+        print(f"Error starting knowledge graph generation: {e}")
         return {
-            "nodes": [], 
-            "links": [], 
             "error": str(e),
-            "message": "Failed to generate knowledge graph"
+            "message": "Failed to start knowledge graph generation"
         }
+
+@router.get("/status")
+async def get_generation_status():
+    """Get knowledge graph generation status - ALWAYS INSTANT"""
+    try:
+        from app.services.knowledge_graph import get_generation_status, get_latest_graph_data
+        
+        status = get_generation_status()
+        graph_data = get_latest_graph_data()
+        
+        return {
+            "generation_status": status,
+            "has_cached_graph": bool(graph_data.get("nodes")),
+            "node_count": len(graph_data.get("nodes", [])),
+            "link_count": len(graph_data.get("links", [])),
+        }
+        
+    except Exception as e:
+        return {"error": str(e)}
 
 @router.post("/invalidate")
 async def invalidate_knowledge_graph_cache():
-    """Clear all knowledge graph caches"""
+    """Clear all knowledge graph caches - ALWAYS INSTANT"""
     try:
         from app.services.knowledge_graph import invalidate_cache
         
@@ -73,23 +105,4 @@ async def invalidate_knowledge_graph_cache():
         
     except Exception as e:
         print(f"Error invalidating cache: {e}")
-        return {"error": str(e)}
-
-@router.get("/status")
-async def get_cache_status():
-    """Get cache status information"""
-    try:
-        from app.services.knowledge_graph import get_latest_graph_data, get_cached_graph_data
-        
-        memory_cache = get_latest_graph_data()
-        file_cache = get_cached_graph_data()
-        
-        return {
-            "has_memory_cache": bool(memory_cache.get("nodes")),
-            "has_file_cache": bool(file_cache.get("nodes")),
-            "memory_cache_size": len(memory_cache.get("nodes", [])),
-            "file_cache_size": len(file_cache.get("nodes", [])),
-        }
-        
-    except Exception as e:
         return {"error": str(e)}

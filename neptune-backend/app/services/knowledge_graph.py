@@ -1,17 +1,18 @@
 from typing import Dict, List, Any
 from sqlalchemy.orm import Session
-from fastapi import BackgroundTasks, APIRouter, Depends
 from datetime import datetime, timedelta
 import json
 import os
+import threading
 
 from app.services.llm_service import extract_topics_from_notes
 from app.services.visualize_topics import create_topic_graph, graph_to_frontend_format
 from app.db.models import FileSystem
-from app.db.database import get_db, SessionLocal
+from app.db.database import SessionLocal
 
 # Cache for the latest graph data
 latest_graph_data = None
+generation_status = {"is_generating": False, "progress": "idle"}
 
 # Caching configuration
 cache_file = "outputs/kg_cache.json"
@@ -72,14 +73,26 @@ def get_latest_graph_data() -> Dict:
     
     return {"nodes": [], "links": []}
 
-def generate_knowledge_graph_from_db() -> Dict:
-    """FIXED: Simple sync version without event loop conflicts"""
-    print("🔄 Generating knowledge graph from database...")
+def get_generation_status() -> Dict:
+    """Get current generation status"""
+    global generation_status
+    return generation_status.copy()
+
+def generate_knowledge_graph_background():
+    """BACKGROUND TASK: Generate knowledge graph without blocking server"""
+    global generation_status
+    
+    generation_status["is_generating"] = True
+    generation_status["progress"] = "starting"
+    
+    print("🔄 [BACKGROUND] Generating knowledge graph...")
     
     # Create new database session
     db = SessionLocal()
     
     try:
+        generation_status["progress"] = "fetching_notes"
+        
         # Get ALL notes from database
         notes = db.query(FileSystem).filter(
             FileSystem.type == "file",
@@ -88,10 +101,10 @@ def generate_knowledge_graph_from_db() -> Dict:
         ).all()
         
         if not notes:
-            print("❌ No notes found in database")
+            print("❌ [BACKGROUND] No notes found in database")
             empty_graph = {"nodes": [], "links": []}
             cache_graph_data(empty_graph)
-            return empty_graph
+            return
         
         # Format notes for LLM processing
         formatted_notes = []
@@ -103,39 +116,49 @@ def generate_knowledge_graph_from_db() -> Dict:
                 })
         
         if not formatted_notes:
-            print("❌ No meaningful content found in notes")
+            print("❌ [BACKGROUND] No meaningful content found in notes")
             empty_graph = {"nodes": [], "links": []}
             cache_graph_data(empty_graph)
-            return empty_graph
+            return
         
-        print(f"🔄 Processing {len(formatted_notes)} notes with Ollama...")
+        generation_status["progress"] = f"processing_{len(formatted_notes)}_notes"
+        print(f"🔄 [BACKGROUND] Processing {len(formatted_notes)} notes with Ollama...")
         
-        # Process with Ollama (topic extraction)
+        # Process with Ollama (topic extraction) - SLOW BUT IN BACKGROUND
         topics_data = extract_topics_from_notes(formatted_notes)
         
         if topics_data:
-            # Create knowledge graph (NOW SYNC - no event loop conflicts)
+            generation_status["progress"] = "building_graph"
+            
+            # Create knowledge graph - SLOW OLLAMA CALLS HAPPEN HERE
             graph = create_topic_graph(topics_data)
             graph_data = graph_to_frontend_format(graph)
             
             # Cache the result
             cache_graph_data(graph_data)
-            print(f"✅ Knowledge graph generated with {len(graph_data.get('nodes', []))} nodes")
-            return graph_data
+            generation_status["progress"] = "completed"
+            print(f"✅ [BACKGROUND] Knowledge graph generated with {len(graph_data.get('nodes', []))} nodes")
         else:
-            print("❌ No topics extracted from notes")
+            print("❌ [BACKGROUND] No topics extracted from notes")
             empty_graph = {"nodes": [], "links": []}
             cache_graph_data(empty_graph)
-            return empty_graph
     
     except Exception as e:
-        print(f"❌ Error generating knowledge graph: {e}")
+        print(f"❌ [BACKGROUND] Error generating knowledge graph: {e}")
+        generation_status["progress"] = f"error: {str(e)}"
         empty_graph = {"nodes": [], "links": []}
         cache_graph_data(empty_graph)
-        return empty_graph
     
     finally:
         db.close()
+        generation_status["is_generating"] = False
+        print("✅ [BACKGROUND] Graph generation completed")
+
+def start_background_generation():
+    """Start knowledge graph generation in background thread"""
+    thread = threading.Thread(target=generate_knowledge_graph_background, daemon=True)
+    thread.start()
+    print("🚀 [BACKGROUND] Knowledge graph generation started in background")
 
 def invalidate_cache():
     """Clear all cached data"""
@@ -148,54 +171,3 @@ def invalidate_cache():
         print("✅ Cache invalidated")
     except Exception as e:
         print(f"❌ Error invalidating cache: {e}")
-
-# API Router
-router = APIRouter()
-
-@router.get("/", response_model=Dict)
-async def get_knowledge_graph():
-    """Get knowledge graph data (cached for speed) - NON-BLOCKING"""
-    # Return cached data immediately (this is always fast)
-    graph_data = get_latest_graph_data()
-    
-    if not graph_data.get("nodes"):
-        return {
-            "nodes": [], 
-            "links": [], 
-            "message": "No knowledge graph available. Click 'Refresh' to generate from your notes."
-        }
-    
-    return graph_data
-
-@router.post("/refresh", response_model=Dict)
-async def refresh_knowledge_graph():
-    """FIXED: Simple sync call without async complications"""
-    try:
-        print("🔄 Manual knowledge graph refresh requested...")
-        invalidate_cache()
-        
-        # Use simple sync version (no event loop conflicts)
-        graph_data = generate_knowledge_graph_from_db()
-        
-        # Add metadata
-        graph_data["cached"] = False
-        graph_data["fresh"] = True
-        graph_data["generated_at"] = "just_now"
-        
-        return graph_data
-        
-    except Exception as e:
-        print(f"❌ Error refreshing knowledge graph: {e}")
-        # Return error response instead of raising exception
-        return {
-            "nodes": [], 
-            "links": [], 
-            "error": str(e),
-            "message": "Failed to generate knowledge graph"
-        }
-
-@router.post("/invalidate")
-async def invalidate_knowledge_graph_cache():
-    """Clear the knowledge graph cache"""
-    invalidate_cache()
-    return {"message": "Cache invalidated"}

@@ -430,6 +430,7 @@ function KnowledgeGraph() {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [cacheStatus, setCacheStatus] = useState({ cached: false, fresh: false });
+  const [generationStatus, setGenerationStatus] = useState({ is_generating: false, progress: "idle" });
 
   // Process fetched data to add positions to nodes
   const processGraphData = (data) => {
@@ -502,7 +503,7 @@ function KnowledgeGraph() {
   const handleRefreshGraph = async () => {
     try {
       setRefreshing(true);
-      console.log('Force generating knowledge graph...');
+      console.log('Starting background knowledge graph generation...');
       
       const response = await fetch('http://localhost:8000/api/knowledge-graph/refresh', {
         method: 'POST',
@@ -515,16 +516,16 @@ function KnowledgeGraph() {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const rawData = await response.json();
-      console.log('Fresh graph data generated:', rawData);
+      const result = await response.json();
+      console.log('Background generation started:', result);
       
-      const processedData = processGraphData(rawData);
-      setData(processedData);
-      setCacheStatus({ cached: true, fresh: true });
+      if (result.generating) {
+        setGenerationStatus({ is_generating: true, progress: "starting" });
+      }
       
     } catch (err) {
-      console.error("Error refreshing knowledge graph:", err);
-      setError(err instanceof Error ? err.message : "Failed to refresh graph");
+      console.error("Error starting background generation:", err);
+      setError(err instanceof Error ? err.message : "Failed to start generation");
     } finally {
       setRefreshing(false);
     }
@@ -534,6 +535,33 @@ function KnowledgeGraph() {
   useEffect(() => {
     fetchKnowledgeGraph(false); // Try cached first
   }, []);
+
+  // Status polling
+  useEffect(() => {
+    let statusInterval;
+    
+    if (generationStatus.is_generating) {
+      statusInterval = setInterval(async () => {
+        try {
+          const response = await fetch('http://localhost:8000/api/knowledge-graph/status');
+          const status = await response.json();
+          
+          setGenerationStatus(status.generation_status || { is_generating: false, progress: "idle" });
+          
+          // If generation completed, refresh the graph data
+          if (!status.generation_status.is_generating && status.has_cached_graph) {
+            fetchKnowledgeGraph(false); // Reload cached data
+          }
+        } catch (err) {
+          console.error("Error checking status:", err);
+        }
+      }, 2000); // Check every 2 seconds
+    }
+    
+    return () => {
+      if (statusInterval) clearInterval(statusInterval);
+    };
+  }, [generationStatus.is_generating]);
 
   // Handle node selection
   const handleSelectNode = (nodeId) => {
@@ -609,10 +637,19 @@ function KnowledgeGraph() {
       {/* Status indicator */}
       <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2">
         <div className="text-white text-sm font-medium">
-          {cacheStatus.fresh ? '✨ Fresh Knowledge Graph' : '⚡ Cached Knowledge Graph'}
+          {generationStatus.is_generating ? (
+            <>
+              <Loader2 className="w-3 h-3 animate-spin inline mr-2" />
+              Generating Knowledge Graph
+            </>
+          ) : cacheStatus.fresh ? '✨ Fresh Knowledge Graph' : '⚡ Cached Knowledge Graph'}
         </div>
         <div className="text-xs text-gray-400 mt-1">
-          {data.nodes.length} topics, {data.links.length} connections
+          {generationStatus.is_generating ? (
+            `Status: ${generationStatus.progress}`
+          ) : (
+            `${data.nodes.length} topics, ${data.links.length} connections`
+          )}
         </div>
       </div>
 
