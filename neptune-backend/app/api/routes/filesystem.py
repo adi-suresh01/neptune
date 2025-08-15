@@ -14,22 +14,19 @@ class ContentUpdate(BaseModel):
 
 @router.get("/", response_model=list[FileSystemItem])
 async def get_file_system(parent_id: int = None, db: Session = Depends(get_db)):
-    """Get all files and folders optionally filtered by parent_id"""
-    query = db.query(FileSystem)
-    if parent_id is not None:
-        query = query.filter(FileSystem.parent_id == parent_id)
-    else:
-        query = query.filter(FileSystem.parent_id == None)  # Root items
+    """Get all files (NO FOLDERS) - simplified for note-only structure"""
+    # SIMPLIFIED: Only get files, ignore parent_id since we don't use folders
+    query = db.query(FileSystem).filter(FileSystem.type == "file")
     
     items = query.all()
     
     # Create default note if nothing exists
-    if not items and parent_id is None:
+    if not items:
         default_note = FileSystem(
-            name="Untitled Note",
+            name="My First Note",
             type="file",
             parent_id=None,
-            content="Write your note here..."
+            content="Welcome to Neptune! Start writing your notes here..."
         )
         db.add(default_note)
         db.commit()
@@ -54,18 +51,21 @@ async def get_file_system(parent_id: int = None, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=FileSystemItem)
 async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(get_db)):
-    """Create a new file or folder - INSTANT, NO OLLAMA"""
+    """Create a new file ONLY - NO FOLDER SUPPORT"""
+    # ENFORCE: Only allow file creation
+    if item.type != "file":
+        raise HTTPException(status_code=400, detail="Only file creation is supported. Folders are not allowed.")
+    
     db_item = FileSystem(
         name=item.name,
-        type=item.type,
-        parent_id=item.parent_id,
-        content="" if item.type == "file" else None
+        type="file",  # Force file type
+        parent_id=None,  # All files are root level
+        content=""  # Start with empty content
     )
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
     
-    # Return immediately - NO background processing
     return FileSystemItem(
         id=db_item.id,
         name=db_item.name,
@@ -89,15 +89,14 @@ async def update_file_content(
     if not db_item:
         raise HTTPException(status_code=404, detail="File not found")
     if db_item.type != "file":
-        raise HTTPException(status_code=400, detail="Cannot set content for folders")
+        raise HTTPException(status_code=400, detail="Cannot set content for non-files")
     
-    # INSTANT SAVE - NO BACKGROUND TASKS
+    # INSTANT SAVE
     db_item.content = content
     db_item.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_item)
     
-    # Return immediately - user sees instant save
     return FileSystemItem(
         id=db_item.id,
         name=db_item.name,
@@ -108,7 +107,7 @@ async def update_file_content(
 
 @router.get("/{item_id}", response_model=FileSystemItem)
 async def get_file_by_id(item_id: int, db: Session = Depends(get_db)):
-    """Get a specific file or folder by ID"""
+    """Get a specific file by ID"""
     item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -125,20 +124,18 @@ async def delete_file_system_item(
     item_id: int,
     db: Session = Depends(get_db)
 ):
-    """Delete a file or folder - INSTANT, NO OLLAMA"""
+    """Delete a file - INSTANT, NO OLLAMA"""
     # Find the item in the database
     db_item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Item not found")
     
-    # If it's a folder, check if it has children and prevent deletion if it does
-    if db_item.type == "folder":
-        children = db.query(FileSystem).filter(FileSystem.parent_id == item_id).count()
-        if children > 0:
-            raise HTTPException(status_code=400, detail="Cannot delete folder with children")
+    # SIMPLIFIED: Only allow file deletion since we don't have folders
+    if db_item.type != "file":
+        raise HTTPException(status_code=400, detail="Only files can be deleted")
     
     # Delete the item instantly
     db.delete(db_item)
     db.commit()
     
-    return {"success": True, "message": f"Item {item_id} deleted successfully"}
+    return {"success": True, "message": f"File '{db_item.name}' deleted successfully"}

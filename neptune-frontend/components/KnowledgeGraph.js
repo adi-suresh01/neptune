@@ -635,14 +635,14 @@ function KnowledgeGraph() {
   return (
     <div className="w-full h-full bg-[#050a1c] relative">
       {/* Status indicator */}
-      <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2">
+      {/* <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2">
         <div className="text-white text-sm font-medium">
           {generationStatus.is_generating ? (
             <>
               <Loader2 className="w-3 h-3 animate-spin inline mr-2" />
               Generating Knowledge Graph
             </>
-          ) : cacheStatus.fresh ? '✨ Fresh Knowledge Graph' : '⚡ Cached Knowledge Graph'}
+          ) : cacheStatus.fresh ? 'Fresh Knowledge Graph' : 'Cached Knowledge Graph'}
         </div>
         <div className="text-xs text-gray-400 mt-1">
           {generationStatus.is_generating ? (
@@ -651,7 +651,7 @@ function KnowledgeGraph() {
             `${data.nodes.length} topics, ${data.links.length} connections`
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* Control buttons */}
       <div className="absolute top-4 right-4 z-10 space-x-2">

@@ -7,7 +7,7 @@ import NotesDisplay from "@/components/NotesDisplay";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Folder, File, EarthIcon as PlanetIcon, FileText, Network } from "lucide-react";
+import { File, EarthIcon as PlanetIcon, FileText, Network, Trash2, Plus } from "lucide-react";
 
 export interface FileSystemItem {
   id: number;
@@ -25,57 +25,21 @@ export interface SelectedItem {
 }
 
 const Home = () => {
-  const [showFolderForm, setShowFolderForm] = useState(false);
   const [showFileForm, setShowFileForm] = useState(false);
-  const [folder, setFolder] = useState("");
   const [file, setFile] = useState("");
   
-  // CHANGE: Default to showing graph first (was false before)
+  // Default to showing graph first
   const [showGraph, setShowGraph] = useState(true);
   const [showNotes, setShowNotes] = useState(false);
   
   const [parent, setParent] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
-
-  // Update selectedItem to include name
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
 
   const generateRandomId = () => Math.floor(Math.random() * 1000000);
 
   const refreshFileSystem = () => {
     setRefreshKey((prev) => prev + 1);
-  };
-
-  const handleAddFolder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!folder.trim()) return;
-
-    const id = generateRandomId();
-    try {
-      const res = await fetch("http://localhost:8000/api/filesystem", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: id,
-          name: folder,
-          type: "folder",
-          parent: parent,
-        }),
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Failed to create folder: ${res.status} ${errorText}`);
-      }
-
-      refreshFileSystem();
-    } catch (err) {
-      console.error("Request error:", err);
-    }
-    setFolder("");
-    setShowFolderForm(false);
   };
 
   const handleAddFile = async (e: React.FormEvent) => {
@@ -91,7 +55,7 @@ const Home = () => {
           id: id,
           name: file,
           type: "file",
-          parent: parent,
+          parent: null, // All files are root level now
         }),
       });
 
@@ -105,7 +69,35 @@ const Home = () => {
     setShowFileForm(false);
   };
 
-  // Update handleItemClick to include the item name and switch to notes view
+  // NEW: Delete function
+  const handleDeleteFile = async (fileId: number) => {
+    if (!fileId) return;
+    
+    const confirmDelete = window.confirm("Are you sure you want to delete this file? This action cannot be undone.");
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch(`http://localhost:8000/api/filesystem/${fileId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete file");
+
+      // If we're deleting the currently selected file, clear selection
+      if (selectedItem && selectedItem.id === fileId) {
+        setSelectedItem(null);
+        setShowGraph(true); // Switch back to graph view
+        setShowNotes(false);
+      }
+
+      refreshFileSystem();
+      console.log("File deleted successfully");
+    } catch (err) {
+      console.error("Error deleting file:", err);
+      alert("Failed to delete file. Please try again.");
+    }
+  };
+
   const handleItemClick = (item: FileSystemItem) => {
     setSelectedItem({
       id: item.id,
@@ -113,22 +105,19 @@ const Home = () => {
       name: item.name,
     });
 
-    if (item.type === "folder") {
-      setParent(item.id);
-    } else if (item.type === "file") {
+    // REMOVED: folder handling since we don't have folders anymore
+    if (item.type === "file") {
       // When selecting a file, switch to notes view automatically
       setShowGraph(false);
       setShowNotes(true);
     }
   };
 
-  // UPDATED: Better toggle function with clearer states
   const handleDisplayGraph = () => {
     setShowGraph(!showGraph);
     setShowNotes(!showNotes);
   };
 
-  // NEW: Separate functions for direct navigation
   const showKnowledgeGraph = () => {
     setShowGraph(true);
     setShowNotes(false);
@@ -145,7 +134,7 @@ const Home = () => {
       <div className="w-70 border-r border-gray-700 flex flex-col">
         {/* Header with view toggle */}
         <div className="p-4 border-b border-gray-700">
-          {/* NEW: View Toggle Buttons */}
+          {/* View Toggle Buttons */}
           <div className="flex space-x-2 mb-4">
             <Button
               onClick={showKnowledgeGraph}
@@ -167,57 +156,34 @@ const Home = () => {
             </Button>
           </div>
 
-          {/* File/Folder creation buttons */}
+          {/* UPDATED: File creation and delete buttons */}
           <div className="flex space-x-2 mb-4">
-            <Button
-              onClick={() => setShowFolderForm(true)}
-              variant="outline"
-              size="sm"
-              className="flex-1 text-black"
-            >
-              <Folder className="w-4 h-4 mr-2" />
-              New Folder
-            </Button>
             <Button
               onClick={() => setShowFileForm(true)}
               variant="outline"
               size="sm"
               className="flex-1 text-black"
             >
-              <File className="w-4 h-4 mr-2" />
-              New File
+              <Plus className="w-4 h-4 mr-2" />
+              New Note
             </Button>
+            {/* NEW: Delete button - only show when a file is selected */}
+            {selectedItem && selectedItem.type === "file" && (
+              <Button
+                onClick={() => handleDeleteFile(selectedItem.id)}
+                variant="outline"
+                size="sm"
+                className="bg-red-900 hover:bg-red-800 border-red-700 text-red-100"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
           </div>
-
-          {showFolderForm && (
-            <form onSubmit={handleAddFolder} className="mb-2">
-              <Input
-                placeholder="Folder name"
-                value={folder}
-                onChange={(e) => setFolder(e.target.value)}
-                className="mb-1"
-                autoFocus
-              />
-              <div className="flex justify-end space-x-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowFolderForm(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" size="sm">
-                  Create
-                </Button>
-              </div>
-            </form>
-          )}
 
           {showFileForm && (
             <form onSubmit={handleAddFile} className="mb-2">
               <Input
-                placeholder="File name"
+                placeholder="Note name"
                 value={file}
                 onChange={(e) => setFile(e.target.value)}
                 className="mb-1"
@@ -244,10 +210,18 @@ const Home = () => {
             onClick={() => {
               setParent(0);
               setSelectedItem(null);
+              showKnowledgeGraph(); // Switch to graph when clicking header
             }}
           >
-            File System
+            Notes
           </h2>
+          
+          {/* NEW: Show selected file name */}
+          {selectedItem && selectedItem.type === "file" && (
+            <div className="text-sm text-gray-400 mt-2">
+              Selected: {selectedItem.name}
+            </div>
+          )}
         </div>
 
         {/* File system display */}
@@ -259,7 +233,7 @@ const Home = () => {
           />
         </div>
 
-        {/* UPDATED: Better bottom toggle */}
+        {/* Bottom toggle */}
         <div className="p-4 border-t border-gray-700">
           <div className="text-xs text-gray-400 mb-2">
             Current View: {showGraph ? "Knowledge Graph" : "Notes Editor"}
@@ -285,7 +259,6 @@ const Home = () => {
 
         {showGraph && (
           <div className="flex-1">
-            {/* FIXED: Remove bg-white to let KnowledgeGraph handle its own background */}
             <KnowledgeGraph />
           </div>
         )}
