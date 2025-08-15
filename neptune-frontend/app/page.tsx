@@ -128,6 +128,21 @@ const Home = () => {
     setShowNotes(true);
   };
 
+  // NEW: Handle note selection from graph
+  const handleNoteSelectionFromGraph = (noteId: number) => {
+    // Set the selected item
+    setSelectedItem({
+      id: noteId,
+      type: "file"
+    });
+    
+    // Switch to notes view
+    setShowGraph(false);
+    setShowNotes(true);
+    
+    console.log(`Switched to note ${noteId}`);
+  };
+
   return (
     <div className="flex h-screen bg-gray-900 text-gray-100">
       {/* Sidebar */}
@@ -259,7 +274,7 @@ const Home = () => {
 
         {showGraph && (
           <div className="flex-1">
-            <KnowledgeGraph />
+            <KnowledgeGraph onSelectNote={handleNoteSelectionFromGraph} />
           </div>
         )}
       </div>
