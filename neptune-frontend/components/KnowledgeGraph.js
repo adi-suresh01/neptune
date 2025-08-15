@@ -8,87 +8,158 @@ import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 import { Loader2, RefreshCw, Zap, Network } from "lucide-react";
 
-// Node component - same as before
-const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = false, onClick, id }) => {
-  const materialRef = useRef();
-  const glowRef = useRef();
-  const dragRef = useRef(false);
-  const startPosRef = useRef([0, 0]);
-  
-  const handlePointerDown = (e) => {
-    dragRef.current = false;
-    startPosRef.current = [e.clientX, e.clientY];
-    e.stopPropagation();
+// HoverPopup component
+const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, onMouseLeave }) => {
+  if (!topic || !relatedNotes || relatedNotes.length === 0) return null;
+
+  const popupStyle = {
+    position: 'fixed',
+    left: `${position.x + 15}px`,
+    top: `${position.y - 10}px`,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    border: '1px solid #444',
+    borderRadius: '8px',
+    padding: '12px',
+    minWidth: '250px',
+    maxWidth: '350px',
+    zIndex: 1000,
+    color: 'white',
+    fontSize: '12px',
+    backdropFilter: 'blur(10px)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+    pointerEvents: 'auto'
   };
 
-  const handlePointerUp = (e) => {
-    const dx = Math.abs(e.clientX - startPosRef.current[0]);
-    const dy = Math.abs(e.clientY - startPosRef.current[1]);
-    const isDrag = dx > 3 || dy > 3;
-    
-    if (!isDrag && !dragRef.current) {
-      onClick(id);
-    }
-    
-    e.stopPropagation();
+  const headerStyle = {
+    fontWeight: 'bold',
+    marginBottom: '8px',
+    color: '#60a5fa',
+    borderBottom: '1px solid #444',
+    paddingBottom: '4px',
+    fontSize: '13px'
   };
 
-  const handlePointerMove = (e) => {
-    if (Math.abs(e.clientX - startPosRef.current[0]) > 3 || 
-        Math.abs(e.clientY - startPosRef.current[1]) > 3) {
-      dragRef.current = true;
-    }
+  const noteItemStyle = {
+    padding: '6px 8px',
+    margin: '2px 0',
+    cursor: 'pointer',
+    borderRadius: '4px',
+    transition: 'background-color 0.2s',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   };
 
-  useFrame(({ clock }) => {
-    if (materialRef.current) {
-      const pulse = Math.sin(clock.getElapsedTime() * 0.8) * 0.05 + 1;
-      materialRef.current.emissiveIntensity = selected ? 2.5 : (pulse * 1.5);
-    }
-    if (glowRef.current) {
-      const pulse = Math.sin(clock.getElapsedTime() * 0.8 + Math.PI) * 0.1 + 1;
-      glowRef.current.scale.set(pulse * 1.1, pulse * 1.1, pulse * 1.1);
-    }
+  const strengthBadgeStyle = (strength) => ({
+    backgroundColor: `rgba(96, 165, 250, ${strength})`,
+    color: strength > 0.5 ? 'white' : 'black',
+    padding: '2px 6px',
+    borderRadius: '12px',
+    fontSize: '10px',
+    fontWeight: 'bold',
+    minWidth: '35px',
+    textAlign: 'center'
   });
 
   return (
-    <group position={position} 
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerMove={handlePointerMove}
+    <div 
+      style={popupStyle}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
-      <mesh ref={glowRef}>
-        <sphereGeometry args={[nodeSize * 1.3, 16, 16]} />
-        <meshBasicMaterial 
-          color={color} 
-          transparent={true} 
-          opacity={0.2} 
-          blending={THREE.AdditiveBlending} 
-        />
-      </mesh>
-      
-      <mesh>
+      <div style={headerStyle}>
+        Related Notes for "{topic}"
+      </div>
+      <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>
+        {relatedNotes.length} note{relatedNotes.length !== 1 ? 's' : ''} found
+      </div>
+      {relatedNotes.map((note, index) => (
+        <div
+          key={note.id}
+          style={{
+            ...noteItemStyle,
+            backgroundColor: index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'transparent'
+          }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(96, 165, 250, 0.2)'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'transparent'}
+          onClick={() => onNoteClick(note.id)}
+        >
+          <span style={{ flex: 1, marginRight: '8px' }}>{note.name}</span>
+          <span style={strengthBadgeStyle(note.strength)}>
+            {(note.strength * 100).toFixed(0)}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Node component - updated with hover detection
+const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = false, onClick, id, onHover, onHoverEnd }) => {
+  const meshRef = useRef();
+  const [hovered, setHovered] = useState(false);
+
+  useFrame((state, delta) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.x += delta * 0.2;
+      meshRef.current.rotation.y += delta * 0.3;
+    }
+  });
+
+  const handlePointerOver = (event) => {
+    event.stopPropagation();
+    setHovered(true);
+    document.body.style.cursor = 'pointer';
+    if (onHover) {
+      onHover(label, {
+        x: event.clientX,
+        y: event.clientY
+      });
+    }
+  };
+
+  const handlePointerOut = (event) => {
+    event.stopPropagation();
+    setHovered(false);
+    document.body.style.cursor = 'auto';
+    if (onHoverEnd) {
+      onHoverEnd();
+    }
+  };
+
+  const handleClick = (event) => {
+    event.stopPropagation();
+    if (onClick) {
+      onClick(id);
+    }
+  };
+
+  return (
+    <group position={position}>
+      <mesh
+        ref={meshRef}
+        onClick={handleClick}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+      >
         <sphereGeometry args={[nodeSize, 32, 32]} />
         <meshStandardMaterial 
-          ref={materialRef}
-          color={color}
-          emissive={color}
-          emissiveIntensity={selected ? 2.5 : 1.5}
-          roughness={0.2}
-          metalness={0.8}
+          color={hovered ? '#ffffff' : color}
+          emissive={hovered ? '#444444' : '#222222'}
+          emissiveIntensity={selected ? 0.6 : (hovered ? 0.4 : 0.1)}
+          transparent
+          opacity={0.9}
         />
       </mesh>
-      
       <Billboard follow={true} lockX={false} lockY={false} lockZ={false}>
         <Text
-          position={[0, -nodeSize * 1.8, 0]}
-          fontSize={nodeSize * 1.2}
-          color="white"
+          position={[0, nodeSize + 1, 0]}
+          fontSize={Math.max(1.5, nodeSize * 0.8)}
+          color={hovered ? '#ffffff' : '#e2e8f0'}
           anchorX="center"
           anchorY="middle"
           outlineWidth={0.1}
           outlineColor="#000000"
-          outlineOpacity={0.8}
         >
           {label}
         </Text>
@@ -269,8 +340,9 @@ const Edge = ({ start, end, strength = 0.5 }) => {
 };
 
 // GraphScene component
-const GraphScene = ({ data, onSelectNode }) => {
+const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
   const [selectedNode, setSelectedNode] = useState(null);
+  const [hoveredNode, setHoveredNode] = useState(null);
   const { scene, camera } = useThree();
   
   useEffect(() => {
@@ -322,6 +394,10 @@ const GraphScene = ({ data, onSelectNode }) => {
     }
   };
 
+  const handleNodeHover = (nodeId, position) => {
+    setHoveredNode(nodeId ? { id: nodeId, position } : null);
+  };
+
   return (
     <group>
       <ambientLight intensity={0.2} />
@@ -338,6 +414,8 @@ const GraphScene = ({ data, onSelectNode }) => {
           nodeSize={(node.size / 50) + 1}
           selected={selectedNode === node.id}
           onClick={handleNodeClick}
+          onHover={onNodeHover}     // This will be passed from the main component
+          onHoverEnd={onNodeHoverEnd} // This will be passed from the main component
         />
       ))}
       
@@ -371,6 +449,18 @@ const GraphScene = ({ data, onSelectNode }) => {
           blendFunction={BlendFunction.NORMAL}
         />
       </EffectComposer>
+      
+      {/* Hover popup for related notes */}
+      {hoveredNode && (
+        <HoverPopup
+          topic={hoveredNode.id}
+          relatedNotes={data.nodes.find(n => n.id === hoveredNode.id)?.related_notes || []}
+          position={hoveredNode.position}
+          onNoteClick={(noteId) => console.log(`Note clicked: ${noteId}`)}
+          onMouseEnter={() => {}}
+          onMouseLeave={() => handleNodeHover(null)}
+        />
+      )}
     </group>
   );
 };
@@ -424,13 +514,19 @@ const Stars = () => {
 };
 
 // Main Knowledge Graph component with auto-loading
-function KnowledgeGraph() {
+function KnowledgeGraph({ onSelectNote }) {
   const [data, setData] = useState({ nodes: [], links: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [cacheStatus, setCacheStatus] = useState({ cached: false, fresh: false });
   const [generationStatus, setGenerationStatus] = useState({ is_generating: false, progress: "idle" });
+
+  // NEW: Add hover state
+  const [hoveredNode, setHoveredNode] = useState(null);
+  const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
+  const [relatedNotes, setRelatedNotes] = useState([]);
+  const [hoverTimeout, setHoverTimeout] = useState(null);
 
   // Process fetched data to add positions to nodes
   const processGraphData = (data) => {
@@ -569,6 +665,120 @@ function KnowledgeGraph() {
     // Future: Show related notes or additional info
   };
 
+  // NEW: Function to calculate note relationships based on graph connections
+  const calculateNoteRelationships = (topicName, graphData) => {
+    const relationships = [];
+    
+    // Find the node data for this topic
+    const topicNode = graphData.nodes.find(node => node.topic === topicName || node.label === topicName);
+    if (!topicNode) {
+      console.log('Topic node not found:', topicName);
+      return [];
+    }
+
+    console.log('Found topic node:', topicNode);
+
+    // Use noteDetails if available from backend
+    if (topicNode.noteDetails && topicNode.noteDetails.length > 0) {
+      topicNode.noteDetails.forEach(noteDetail => {
+        // Calculate relationship strength based on topic connections
+        const connectedLinks = graphData.links.filter(link => 
+          link.source === topicName || link.target === topicName
+        );
+        
+        let avgStrength = 0.5; // Default
+        if (connectedLinks.length > 0) {
+          const totalStrength = connectedLinks.reduce((sum, link) => sum + (link.strength || 0.5), 0);
+          avgStrength = totalStrength / connectedLinks.length;
+        }
+        
+        relationships.push({
+          id: noteDetail.id,
+          name: noteDetail.name,
+          strength: Math.max(0.3, avgStrength)
+        });
+      });
+    } else {
+      // Fallback: use noteIds with generated names
+      const noteIds = topicNode.noteIds || [];
+      noteIds.forEach(noteId => {
+        const connectedLinks = graphData.links.filter(link => 
+          link.source === topicName || link.target === topicName
+        );
+        
+        let avgStrength = 0.5;
+        if (connectedLinks.length > 0) {
+          const totalStrength = connectedLinks.reduce((sum, link) => sum + (link.strength || 0.5), 0);
+          avgStrength = totalStrength / connectedLinks.length;
+        }
+        
+        relationships.push({
+          id: noteId,
+          name: `Note ${noteId}`,
+          strength: Math.max(0.3, avgStrength)
+        });
+      });
+    }
+
+    // Sort by strength (highest first)
+    return relationships.sort((a, b) => b.strength - a.strength);
+  };
+
+  // NEW: Handle node hover
+  const handleNodeHover = (topicName, position) => {
+    // Clear any existing timeout
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      setHoverTimeout(null);
+    }
+
+    setHoveredNode(topicName);
+    setHoverPosition(position);
+    
+    // Calculate related notes for this topic
+    const noteRelationships = calculateNoteRelationships(topicName, data);
+    console.log('Note relationships for', topicName, ':', noteRelationships);
+    setRelatedNotes(noteRelationships);
+  };
+
+  // NEW: Handle hover end with delay
+  const handleNodeHoverEnd = () => {
+    const timeout = setTimeout(() => {
+      setHoveredNode(null);
+      setRelatedNotes([]);
+    }, 100); // Small delay to allow moving to popup
+    
+    setHoverTimeout(timeout);
+  };
+
+  // NEW: Handle popup mouse enter (keep popup open)
+  const handlePopupMouseEnter = () => {
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      setHoverTimeout(null);
+    }
+  };
+
+  // NEW: Handle popup mouse leave (close popup)
+  const handlePopupMouseLeave = () => {
+    setHoveredNode(null);
+    setRelatedNotes([]);
+  };
+
+  // NEW: Handle note click from popup
+  const handleNoteClick = (noteId) => {
+    console.log(`Switching to note ${noteId}`);
+    
+    // Close the popup
+    setHoveredNode(null);
+    setRelatedNotes([]);
+    
+    // Call the parent function to switch to notes view
+    if (onSelectNote) {
+      onSelectNote(noteId);
+    }
+  };
+
   // Show loading state
   if (isLoading) {
     return (
@@ -684,9 +894,23 @@ function KnowledgeGraph() {
         />
         <GraphScene 
           data={data} 
-          onSelectNode={handleSelectNode} 
+          onSelectNode={handleSelectNode}
+          onNodeHover={handleNodeHover}
+          onNodeHoverEnd={handleNodeHoverEnd}
         />
       </Canvas>
+
+      {/* NEW: Add hover popup */}
+      {hoveredNode && relatedNotes.length > 0 && (
+        <HoverPopup
+          topic={hoveredNode}
+          relatedNotes={relatedNotes}
+          position={hoverPosition}
+          onNoteClick={handleNoteClick}
+          onMouseEnter={handlePopupMouseEnter}
+          onMouseLeave={handlePopupMouseLeave}
+        />
+      )}
     </div>
   );
 }

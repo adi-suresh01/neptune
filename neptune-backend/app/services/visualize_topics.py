@@ -95,17 +95,48 @@ def create_topic_graph(topics_data: List[Dict[str, Any]]) -> nx.Graph:
 
 def graph_to_frontend_format(G: nx.Graph) -> Dict:
     """
-    Convert NetworkX graph to a frontend-friendly JSON structure
+    Convert NetworkX graph to a frontend-friendly JSON structure with note details
     """
+    # NEW: Get note names from database
+    from app.db.database import SessionLocal
+    from app.db.models import FileSystem
+    
+    db = SessionLocal()
+    try:
+        notes = db.query(FileSystem).filter(FileSystem.type == "file").all()
+        note_names = {note.id: note.name for note in notes}
+    except Exception as e:
+        print(f"Error fetching note names: {e}")
+        note_names = {}
+    finally:
+        db.close()
+    
     nodes = []
     for node, data in G.nodes(data=True):
+        # NEW: Include note details with names
+        note_details = []
+        for note_id_str in data.get("note_ids", []):
+            try:
+                note_id = int(note_id_str)
+                note_name = note_names.get(note_id, f"Note {note_id}")
+                note_details.append({
+                    "id": note_id,
+                    "name": note_name
+                })
+            except (ValueError, TypeError):
+                note_details.append({
+                    "id": note_id_str,
+                    "name": f"Note {note_id_str}"
+                })
+        
         nodes.append({
             "id": node,
             "label": node,
-            "topic": node,  # Add topic field
+            "topic": node,
             "size": data.get("size", 30),
             "noteCount": data.get("note_count", 0),
-            "noteIds": data.get("note_ids", [])
+            "noteIds": data.get("note_ids", []),
+            "noteDetails": note_details  # NEW: Include note names
         })
     
     links = []
