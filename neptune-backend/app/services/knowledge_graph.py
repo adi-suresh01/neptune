@@ -1,97 +1,173 @@
 from typing import Dict, List, Any
-import asyncio
 from sqlalchemy.orm import Session
-from fastapi import BackgroundTasks, APIRouter, Depends
-from datetime import datetime
+from datetime import datetime, timedelta
+import json
+import os
+import threading
 
 from app.services.llm_service import extract_topics_from_notes
 from app.services.visualize_topics import create_topic_graph, graph_to_frontend_format
 from app.db.models import FileSystem
-from app.db.database import get_db
+from app.db.database import SessionLocal
 
 # Cache for the latest graph data
 latest_graph_data = None
+generation_status = {"is_generating": False, "progress": "idle"}
 
-async def generate_knowledge_graph(db: Session) -> Dict:
-    """
-    Generate knowledge graph from all notes in the database
-    
-    Args:
-        db: Database session
+# Caching configuration
+cache_file = "outputs/kg_cache.json"
+cache_duration = timedelta(minutes=10)
+
+def get_cached_graph_data() -> Dict:
+    """Get cached graph data from file if valid, otherwise return empty"""
+    try:
+        if os.path.exists(cache_file):
+            with open(cache_file, 'r') as f:
+                cached_data = json.load(f)
+            
+            cache_time = datetime.fromisoformat(cached_data['timestamp'])
+            if datetime.now() - cache_time < cache_duration:
+                print("✅ Using cached knowledge graph from file")
+                return cached_data['graph']
         
-    Returns:
-        Dictionary with nodes and links for the frontend visualization
-    """
+        print("🔄 Cache expired or missing")
+        return {"nodes": [], "links": []}
+        
+    except Exception as e:
+        print(f"❌ Cache error: {e}")
+        return {"nodes": [], "links": []}
+
+def cache_graph_data(graph_data: Dict):
+    """Cache the graph data with timestamp"""
     global latest_graph_data
     
-    # Fetch all file content from database
-    notes = db.query(FileSystem).filter(FileSystem.type == "file").all()
-    
-    # Format notes for processing
-    formatted_notes = [
-        {
-            "id": str(note.id),
-            "content": note.content or ""
+    try:
+        os.makedirs("outputs", exist_ok=True)
+        
+        cache_data = {
+            "timestamp": datetime.now().isoformat(),
+            "graph": graph_data
         }
-        for note in notes
-        if note.content  # Only include notes with content
-    ]
+        
+        with open(cache_file, 'w') as f:
+            json.dump(cache_data, f)
+        
+        latest_graph_data = graph_data
+        print("✅ Knowledge graph cached (file + memory)")
+        
+    except Exception as e:
+        print(f"❌ Cache save error: {e}")
+
+def get_latest_graph_data() -> Dict:
+    """Get the latest graph data from memory or file cache"""
+    global latest_graph_data
     
-    # Only process if we have notes with content
-    if formatted_notes:
-        # Extract topics
+    if latest_graph_data is not None:
+        print("✅ Using in-memory cached knowledge graph")
+        return latest_graph_data
+    
+    file_cached = get_cached_graph_data()
+    if file_cached.get("nodes"):
+        latest_graph_data = file_cached
+        return file_cached
+    
+    return {"nodes": [], "links": []}
+
+def get_generation_status() -> Dict:
+    """Get current generation status"""
+    global generation_status
+    return generation_status.copy()
+
+def generate_knowledge_graph_background():
+    """BACKGROUND TASK: Generate knowledge graph without blocking server"""
+    global generation_status
+    
+    generation_status["is_generating"] = True
+    generation_status["progress"] = "starting"
+    
+    print("🔄 [BACKGROUND] Generating knowledge graph...")
+    
+    # Create new database session
+    db = SessionLocal()
+    
+    try:
+        generation_status["progress"] = "fetching_notes"
+        
+        # Get ALL notes from database
+        notes = db.query(FileSystem).filter(
+            FileSystem.type == "file",
+            FileSystem.content.isnot(None),
+            FileSystem.content != ""
+        ).all()
+        
+        if not notes:
+            print("❌ [BACKGROUND] No notes found in database")
+            empty_graph = {"nodes": [], "links": []}
+            cache_graph_data(empty_graph)
+            return
+        
+        # Format notes for LLM processing
+        formatted_notes = []
+        for note in notes:
+            if note.content and len(note.content.strip()) > 10:
+                formatted_notes.append({
+                    "id": str(note.id), 
+                    "content": note.content
+                })
+        
+        if not formatted_notes:
+            print("❌ [BACKGROUND] No meaningful content found in notes")
+            empty_graph = {"nodes": [], "links": []}
+            cache_graph_data(empty_graph)
+            return
+        
+        generation_status["progress"] = f"processing_{len(formatted_notes)}_notes"
+        print(f"🔄 [BACKGROUND] Processing {len(formatted_notes)} notes with Ollama...")
+        
+        # Process with Ollama (topic extraction) - SLOW BUT IN BACKGROUND
         topics_data = extract_topics_from_notes(formatted_notes)
         
-        # Generate graph
         if topics_data:
+            generation_status["progress"] = "building_graph"
+            
+            # Create knowledge graph - SLOW OLLAMA CALLS HAPPEN HERE
             graph = create_topic_graph(topics_data)
             graph_data = graph_to_frontend_format(graph)
             
-            # Update cache
-            latest_graph_data = graph_data
-            
-            return graph_data
+            # Cache the result
+            cache_graph_data(graph_data)
+            generation_status["progress"] = "completed"
+            print(f"✅ [BACKGROUND] Knowledge graph generated with {len(graph_data.get('nodes', []))} nodes")
+        else:
+            print("❌ [BACKGROUND] No topics extracted from notes")
+            empty_graph = {"nodes": [], "links": []}
+            cache_graph_data(empty_graph)
     
-    # Return empty graph if no data
-    return {"nodes": [], "links": []}
-
-def get_cached_graph_data() -> Dict:
-    """Get the latest cached knowledge graph data"""
-    if latest_graph_data is None:
-        return {"nodes": [], "links": []}
-    return latest_graph_data
-
-async def update_knowledge_graph_async(db: Session):
-    """Update the knowledge graph in the background"""
-    await generate_knowledge_graph(db)
-
-def schedule_knowledge_graph_update(background_tasks: BackgroundTasks, db: Session):
-    """Schedule a background task to update the knowledge graph"""
-    background_tasks.add_task(update_knowledge_graph_async, db)
-
-router = APIRouter()
-
-@router.get("/", response_model=Dict)
-async def get_knowledge_graph(
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """
-    Get the knowledge graph data for visualization.
-    This endpoint will return cached data if available,
-    and trigger a refresh in the background.
-    """
-    # Get current cached data
-    graph_data = get_cached_graph_data()
+    except Exception as e:
+        print(f"❌ [BACKGROUND] Error generating knowledge graph: {e}")
+        generation_status["progress"] = f"error: {str(e)}"
+        empty_graph = {"nodes": [], "links": []}
+        cache_graph_data(empty_graph)
     
-    # Schedule update for next time
-    background_tasks.add_task(generate_knowledge_graph, db)
-    
-    return graph_data
+    finally:
+        db.close()
+        generation_status["is_generating"] = False
+        print("✅ [BACKGROUND] Graph generation completed")
 
-@router.post("/refresh", response_model=Dict)
-async def refresh_knowledge_graph(db: Session = Depends(get_db)):
-    """
-    Force refresh the knowledge graph and wait for the results
-    """
-    return await generate_knowledge_graph(db)
+def start_background_generation():
+    """Start knowledge graph generation in background thread"""
+    thread = threading.Thread(target=generate_knowledge_graph_background, daemon=True)
+    thread.start()
+    print("🚀 [BACKGROUND] Knowledge graph generation started in background")
+
+def invalidate_cache():
+    """Clear all cached data"""
+    global latest_graph_data
+    latest_graph_data = None
+    
+    try:
+        if os.path.exists(cache_file):
+            os.remove(cache_file)
+        print("✅ Cache invalidated")
+    except Exception as e:
+        print(f"❌ Error invalidating cache: {e}")

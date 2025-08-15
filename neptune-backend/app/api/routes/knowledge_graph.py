@@ -1,27 +1,108 @@
-from fastapi import APIRouter, Depends, BackgroundTasks
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException
 from typing import Dict
-
-from app.db.database import get_db
-from app.services.knowledge_graph import generate_knowledge_graph, get_cached_graph_data
 
 router = APIRouter()
 
-@router.get("/", response_model=Dict)
-async def get_knowledge_graph(
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """Get the knowledge graph data for visualization"""
-    # Get current cached data
-    graph_data = get_cached_graph_data()
-    
-    # Schedule update for next time
-    background_tasks.add_task(generate_knowledge_graph, db)
-    
-    return graph_data
+@router.get("/")
+async def get_knowledge_graph():
+    """Get knowledge graph data - ALWAYS INSTANT (cached only)"""
+    try:
+        from app.services.knowledge_graph import get_latest_graph_data, get_generation_status
+        
+        # Always return cached data immediately (NEVER blocks)
+        graph_data = get_latest_graph_data()
+        status = get_generation_status()
+        
+        # Return whatever we have (cached or empty)
+        if graph_data.get("nodes"):
+            return {
+                **graph_data,
+                "status": status,
+                "cached": True
+            }
+        else:
+            # Return empty with status
+            return {
+                "nodes": [], 
+                "links": [], 
+                "message": "No cached knowledge graph. Click 'Generate' to create one.",
+                "status": status,
+                "cached": False
+            }
+        
+    except Exception as e:
+        print(f"Error getting knowledge graph: {e}")
+        return {
+            "nodes": [], 
+            "links": [], 
+            "error": str(e),
+            "cached": False
+        }
 
-@router.post("/refresh", response_model=Dict)
-async def refresh_knowledge_graph(db: Session = Depends(get_db)):
-    """Force refresh the knowledge graph and wait for the results"""
-    return await generate_knowledge_graph(db)
+@router.post("/refresh")
+async def refresh_knowledge_graph():
+    """FIXED: Start generation in background - RETURNS IMMEDIATELY"""
+    try:
+        from app.services.knowledge_graph import start_background_generation, invalidate_cache, get_generation_status
+        
+        status = get_generation_status()
+        
+        # Check if already generating
+        if status["is_generating"]:
+            return {
+                "message": "Knowledge graph generation already in progress",
+                "status": status,
+                "generating": True
+            }
+        
+        print("🔄 Starting background knowledge graph generation...")
+        invalidate_cache()
+        
+        # Start background generation (RETURNS IMMEDIATELY)
+        start_background_generation()
+        
+        return {
+            "message": "Knowledge graph generation started in background",
+            "status": {"is_generating": True, "progress": "starting"},
+            "generating": True,
+            "note": "Check /api/knowledge-graph/status for progress"
+        }
+        
+    except Exception as e:
+        print(f"Error starting knowledge graph generation: {e}")
+        return {
+            "error": str(e),
+            "message": "Failed to start knowledge graph generation"
+        }
+
+@router.get("/status")
+async def get_generation_status():
+    """Get knowledge graph generation status - ALWAYS INSTANT"""
+    try:
+        from app.services.knowledge_graph import get_generation_status, get_latest_graph_data
+        
+        status = get_generation_status()
+        graph_data = get_latest_graph_data()
+        
+        return {
+            "generation_status": status,
+            "has_cached_graph": bool(graph_data.get("nodes")),
+            "node_count": len(graph_data.get("nodes", [])),
+            "link_count": len(graph_data.get("links", [])),
+        }
+        
+    except Exception as e:
+        return {"error": str(e)}
+
+@router.post("/invalidate")
+async def invalidate_knowledge_graph_cache():
+    """Clear all knowledge graph caches - ALWAYS INSTANT"""
+    try:
+        from app.services.knowledge_graph import invalidate_cache
+        
+        invalidate_cache()
+        return {"message": "All caches invalidated"}
+        
+    except Exception as e:
+        print(f"Error invalidating cache: {e}")
+        return {"error": str(e)}
