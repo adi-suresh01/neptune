@@ -12,22 +12,32 @@ import { Loader2, RefreshCw, Zap, Network } from "lucide-react";
 const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, onMouseLeave }) => {
   if (!topic || !relatedNotes || relatedNotes.length === 0) return null;
 
+  const maxHeight = window.innerHeight * 0.6;
+  
+  // IMPROVED: Better positioning to avoid screen edges
+  const leftPos = Math.min(position.x + 15, window.innerWidth - 400);
+  const topPos = Math.max(10, Math.min(position.y - 10, window.innerHeight - Math.min(400, maxHeight)));
+  
   const popupStyle = {
     position: 'fixed',
-    left: `${position.x + 15}px`,
-    top: `${position.y - 10}px`,
+    left: `${leftPos}px`,
+    top: `${topPos}px`,
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
     border: '1px solid #444',
     borderRadius: '8px',
     padding: '12px',
-    minWidth: '250px',
-    maxWidth: '350px',
+    minWidth: '280px',
+    maxWidth: '400px',
+    maxHeight: `${maxHeight}px`,
     zIndex: 1000,
     color: 'white',
     fontSize: '12px',
     backdropFilter: 'blur(10px)',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-    pointerEvents: 'auto'
+    pointerEvents: 'auto',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column'
   };
 
   const headerStyle = {
@@ -36,18 +46,30 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
     color: '#60a5fa',
     borderBottom: '1px solid #444',
     paddingBottom: '4px',
-    fontSize: '13px'
+    fontSize: '13px',
+    flexShrink: 0
+  };
+
+  const scrollableContentStyle = {
+    maxHeight: `${maxHeight - 80}px`,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    paddingRight: '4px',
+    // Custom scrollbar styling
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#444 transparent'
   };
 
   const noteItemStyle = {
-    padding: '6px 8px',
+    padding: '8px',
     margin: '2px 0',
     cursor: 'pointer',
     borderRadius: '4px',
     transition: 'background-color 0.2s',
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center', // Changed from flex-start to center
+    gap: '8px'
   };
 
   const strengthBadgeStyle = (strength) => ({
@@ -58,7 +80,8 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
     fontSize: '10px',
     fontWeight: 'bold',
     minWidth: '35px',
-    textAlign: 'center'
+    textAlign: 'center',
+    flexShrink: 0
   });
 
   return (
@@ -66,30 +89,65 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
       style={popupStyle}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      // ADDED: Prevent mouse events from bubbling up to the canvas
+      onMouseDown={(e) => e.stopPropagation()}
+      onMouseUp={(e) => e.stopPropagation()}
+      onMouseMove={(e) => e.stopPropagation()}
     >
+      {/* Header */}
       <div style={headerStyle}>
         Related Notes for "{topic}"
       </div>
-      <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>
+      
+      {/* Stats */}
+      <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px', flexShrink: 0 }}>
         {relatedNotes.length} note{relatedNotes.length !== 1 ? 's' : ''} found
+        {relatedNotes.length > 5 && <span style={{ color: '#60a5fa' }}> • Scroll to see all</span>}
       </div>
-      {relatedNotes.map((note, index) => (
-        <div
-          key={note.id}
-          style={{
-            ...noteItemStyle,
-            backgroundColor: index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'transparent'
-          }}
-          onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(96, 165, 250, 0.2)'}
-          onMouseLeave={(e) => e.target.style.backgroundColor = index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'transparent'}
-          onClick={() => onNoteClick(note.id)}
-        >
-          <span style={{ flex: 1, marginRight: '8px' }}>{note.name}</span>
-          <span style={strengthBadgeStyle(note.strength)}>
-            {(note.strength * 100).toFixed(0)}%
-          </span>
+      
+      {/* Scrollable content - SIMPLIFIED */}
+      <div style={scrollableContentStyle}>
+        {relatedNotes.map((note, index) => (
+          <div
+            key={`${note.id}-${index}`}
+            style={{
+              ...noteItemStyle,
+              backgroundColor: index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              e.stopPropagation();
+              e.currentTarget.style.backgroundColor = 'rgba(96, 165, 250, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.stopPropagation();
+              e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'transparent';
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onNoteClick(note.id);
+            }}
+          >
+            {/* SIMPLIFIED: Just note name and strength */}
+            <span style={{ fontWeight: '500', flex: 1 }}>{note.name}</span>
+            <span style={strengthBadgeStyle(note.strength)}>
+              {(note.strength * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
+      </div>
+      
+      {/* Scroll indicator if needed */}
+      {relatedNotes.length > 5 && (
+        <div style={{ 
+          fontSize: '9px', 
+          color: '#666', 
+          textAlign: 'center', 
+          marginTop: '4px',
+          flexShrink: 0 
+        }}>
+          ↕ Scroll for more
         </div>
-      ))}
+      )}
     </div>
   );
 };
@@ -122,8 +180,11 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
     event.stopPropagation();
     setHovered(false);
     document.body.style.cursor = 'auto';
+    // INCREASED DELAY: Give more time to move to popup
     if (onHoverEnd) {
-      onHoverEnd();
+      setTimeout(() => {
+        onHoverEnd();
+      }, 300); // Increased from immediate to 300ms
     }
   };
 
@@ -168,173 +229,85 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
   );
 };
 
-// Edge component - same as before (keeping existing implementation)
+// Enhanced laser beam with strength-based translucency and brightness
 const Edge = ({ start, end, strength = 0.5 }) => {
-  const lineRef = useRef();
-  const particlesRef = useRef();
-  const lineGeometryRef = useRef();
+  const coreRef = useRef();
+  const glowRef = useRef();
   
-  const particleCount = Math.floor(100 * Math.max(0.3, strength));
-
-  const points = useMemo(() => {
-    const startVec = new THREE.Vector3(start[0], start[1], start[2]);
-    const endVec = new THREE.Vector3(end[0], end[1], end[2]);
+  const startVec = useMemo(() => new THREE.Vector3(start[0], start[1], start[2]), [start]);
+  const endVec = useMemo(() => new THREE.Vector3(end[0], end[1], end[2]), [end]);
+  
+  const { position, rotation, length } = useMemo(() => {
+    const direction = new THREE.Vector3().subVectors(endVec, startVec);
+    const length = direction.length();
+    const position = new THREE.Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
     
-    const midPoint = new THREE.Vector3().lerpVectors(startVec, endVec, 0.5);
-    const distance = startVec.distanceTo(endVec);
-    midPoint.y += 2 * (1 - strength) * Math.min(10, distance/10); 
+    const axis = new THREE.Vector3(0, 1, 0);
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(axis, direction.normalize());
+    const rotation = new THREE.Euler().setFromQuaternion(quaternion);
     
-    const curve = new THREE.QuadraticBezierCurve3(startVec, midPoint, endVec);
-    return curve.getPoints(20);
-  }, [start, end, strength]);
-
-  const particlePositions = useMemo(() => {
-    const positions = new Float32Array(particleCount * 3);
-    const curve = new THREE.QuadraticBezierCurve3(
-      new THREE.Vector3(start[0], start[1], start[2]),
-      new THREE.Vector3(
-        (start[0] + end[0]) / 2,
-        ((start[1] + end[1]) / 2) + 2 * (1 - strength) * 
-        Math.min(10, Math.sqrt(Math.pow(end[0]-start[0], 2) + 
-        Math.pow(end[1]-start[1], 2) + Math.pow(end[2]-start[2], 2))/10),
-        (start[2] + end[2]) / 2
-      ),
-      new THREE.Vector3(end[0], end[1], end[2])
-    );
-
-    for (let i = 0; i < particleCount; i++) {
-      const t = i / particleCount;
-      const point = curve.getPoint(t);
-      positions[i * 3] = point.x;
-      positions[i * 3 + 1] = point.y;
-      positions[i * 3 + 2] = point.z;
-    }
-    return positions;
-  }, [start, end, strength, particleCount]);
-
-  const particleSizes = useMemo(() => {
-    const sizes = new Float32Array(particleCount);
-    for (let i = 0; i < particleCount; i++) {
-      sizes[i] = Math.random() * 2.5 * strength + 0.8;
-    }
-    return sizes;
-  }, [particleCount, strength]);
-
-  const particleColors = useMemo(() => {
-    const colors = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount; i++) {
-      const t = Math.random();
-      colors[i * 3] = 0.7 + 0.3 * t;
-      colors[i * 3 + 1] = 0.7 + 0.3 * t;
-      colors[i * 3 + 2] = 1.0;
-    }
-    return colors;
-  }, [particleCount]);
+    return { position, rotation, length };
+  }, [startVec, endVec]);
 
   useFrame(({ clock }) => {
-    if (particlesRef.current && lineGeometryRef.current) {
-      const time = clock.getElapsedTime() * Math.max(0.4, strength);
-      const positions = particlesRef.current.attributes.position.array;
-      const sizes = particlesRef.current.attributes.size.array;
+    const time = clock.getElapsedTime();
+    const pulse = Math.sin(time * 3) * 0.1 + 0.9; // Reduced pulse variation for smoother effect
+    
+    if (coreRef.current) {
+      // Brightness based on strength: stronger = more opaque and brighter
+      const baseOpacity = Math.max(0.3, strength); // Min 30% opacity, max based on strength
+      coreRef.current.material.opacity = baseOpacity * pulse;
       
-      if (lineRef.current) {
-        const pulse = Math.sin(time * 2) * 0.2 + 0.8;
-        lineRef.current.material.opacity = Math.max(0.2, pulse * strength);
-      }
+      // Emissive intensity based on strength: stronger = brighter glow
+      const baseEmissive = Math.max(0.2, strength * 0.8); // Min 20%, max 80% based on strength
+      coreRef.current.material.emissiveIntensity = baseEmissive * pulse;
+    }
+    
+    if (glowRef.current) {
+      // Outer glow also strength-dependent but more subtle
+      const glowOpacity = Math.max(0.1, strength * 0.5); // Min 10%, max 50% based on strength
+      glowRef.current.material.opacity = glowOpacity * pulse;
       
-      const waveSpeed = time * 1.5;
-      const waveWidth = 0.1;
-      
-      for (let i = 0; i < particleCount; i++) {
-        const baseT = ((i / particleCount) + (time * 0.2)) % 1;
-        const t = baseT;
-        
-        const point = new THREE.Vector3();
-        const curve = new THREE.QuadraticBezierCurve3(
-          new THREE.Vector3(start[0], start[1], start[2]),
-          new THREE.Vector3(
-            (start[0] + end[0]) / 2,
-            ((start[1] + end[1]) / 2) + 2 * (1 - strength) * 
-            Math.min(10, Math.sqrt(Math.pow(end[0]-start[0], 2) + 
-            Math.pow(end[1]-start[1], 2) + Math.pow(end[2]-start[2], 2))/10),
-            (start[2] + end[2]) / 2
-          ),
-          new THREE.Vector3(end[0], end[1], end[2])
-        );
-        
-        point.copy(curve.getPoint(t));
-        
-        const jitter = 0.2;
-        point.x += (Math.random() - 0.5) * jitter * strength;
-        point.y += (Math.random() - 0.5) * jitter * strength;
-        point.z += (Math.random() - 0.5) * jitter * strength;
-        
-        positions[i * 3] = point.x;
-        positions[i * 3 + 1] = point.y;
-        positions[i * 3 + 2] = point.z;
-        
-        const wave = Math.sin((baseT * 10 + waveSpeed) * Math.PI * 2);
-        const waveInfluence = Math.max(0, 1 - Math.abs(wave) / waveWidth);
-        
-        sizes[i] = Math.random() * 1.5 * strength + 0.5 + waveInfluence * 2.5;
-      }
-      
-      particlesRef.current.attributes.position.needsUpdate = true;
-      particlesRef.current.attributes.size.needsUpdate = true;
+      const glowEmissive = Math.max(0.05, strength * 0.3);
+      glowRef.current.material.emissiveIntensity = glowEmissive * pulse;
     }
   });
 
+  // Consistent violet color for all laser beams
+  const laserColor = '#8b5cf6';
+
+  // Radius also slightly affected by strength for visual clarity
+  const coreRadius = Math.max(0.03, strength * 0.12); // Slightly thicker for stronger connections
+  const glowRadius = coreRadius * 2.5;
+
   return (
-    <group>
-      <line ref={lineRef}>
-        <bufferGeometry ref={lineGeometryRef}>
-          <bufferAttribute
-            attach="attributes-position"
-            count={points.length}
-            array={new Float32Array(points.flatMap(p => [p.x, p.y, p.z]))}
-            itemSize={3}
-          />
-        </bufferGeometry>
-        <lineBasicMaterial 
-          color={strength > 0.7 ? "#ffffff" : "#73a7ff"}
+    <group position={[position.x, position.y, position.z]} rotation={[rotation.x, rotation.y, rotation.z]}>
+      {/* Inner core - brightness varies with strength */}
+      <mesh ref={coreRef}>
+        <cylinderGeometry args={[coreRadius, coreRadius, length, 6]} />
+        <meshStandardMaterial
+          color={laserColor}
+          emissive={laserColor}
+          emissiveIntensity={Math.max(0.2, strength * 0.8)} // Base emissive based on strength
           transparent
-          opacity={Math.max(0.3, strength * 0.9)}
-          linewidth={1}
-          blending={THREE.AdditiveBlending}
+          opacity={Math.max(0.3, strength)} // Base opacity based on strength
+          toneMapped={false}
         />
-      </line>
+      </mesh>
       
-      <points>
-        <bufferGeometry ref={particlesRef}>
-          <bufferAttribute
-            attach="attributes-position"
-            count={particleCount}
-            array={particlePositions}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            count={particleCount}
-            array={particleSizes}
-            itemSize={1}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            count={particleCount}
-            array={particleColors}
-            itemSize={3}
-          />
-        </bufferGeometry>
-        <pointsMaterial
-          size={2}
-          vertexColors
+      {/* Outer glow - also strength-dependent */}
+      <mesh ref={glowRef}>
+        <cylinderGeometry args={[glowRadius, glowRadius, length, 8]} />
+        <meshStandardMaterial
+          color={laserColor}
+          emissive={laserColor}
+          emissiveIntensity={Math.max(0.05, strength * 0.3)} // Base glow based on strength
           transparent
-          opacity={Math.min(1.0, strength * 2)}
+          opacity={Math.max(0.1, strength * 0.5)} // Base glow opacity based on strength
+          toneMapped={false}
           blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          sizeAttenuation
         />
-      </points>
+      </mesh>
     </group>
   );
 };
@@ -403,8 +376,7 @@ const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
       <ambientLight intensity={0.2} />
       <directionalLight position={[10, 10, 5]} intensity={0.7} />
       
-      <Stars />
-      
+      {/* Rest of your nodes and edges */}
       {data.nodes.map((node) => (
         <Node
           key={node.id}
@@ -522,11 +494,12 @@ function KnowledgeGraph({ onSelectNote }) {
   const [cacheStatus, setCacheStatus] = useState({ cached: false, fresh: false });
   const [generationStatus, setGenerationStatus] = useState({ is_generating: false, progress: "idle" });
 
-  // NEW: Add hover state
+  // UPDATED: Better hover state management
   const [hoveredNode, setHoveredNode] = useState(null);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
   const [relatedNotes, setRelatedNotes] = useState([]);
   const [hoverTimeout, setHoverTimeout] = useState(null);
+  const [isPopupHovered, setIsPopupHovered] = useState(false);
 
   // Process fetched data to add positions to nodes
   const processGraphData = (data) => {
@@ -668,8 +641,9 @@ function KnowledgeGraph({ onSelectNote }) {
   // NEW: Function to calculate note relationships based on graph connections
   const calculateNoteRelationships = (topicName, graphData) => {
     const relationships = [];
+    const processedNotes = new Set(); // Prevent duplicates
     
-    // Find the node data for this topic
+    // Find the main topic node
     const topicNode = graphData.nodes.find(node => node.topic === topicName || node.label === topicName);
     if (!topicNode) {
       console.log('Topic node not found:', topicName);
@@ -678,50 +652,92 @@ function KnowledgeGraph({ onSelectNote }) {
 
     console.log('Found topic node:', topicNode);
 
-    // Use noteDetails if available from backend
+    // Step 1: Add notes directly associated with this topic
     if (topicNode.noteDetails && topicNode.noteDetails.length > 0) {
       topicNode.noteDetails.forEach(noteDetail => {
-        // Calculate relationship strength based on topic connections
-        const connectedLinks = graphData.links.filter(link => 
-          link.source === topicName || link.target === topicName
-        );
-        
-        let avgStrength = 0.5; // Default
-        if (connectedLinks.length > 0) {
-          const totalStrength = connectedLinks.reduce((sum, link) => sum + (link.strength || 0.5), 0);
-          avgStrength = totalStrength / connectedLinks.length;
+        if (!processedNotes.has(noteDetail.id)) {
+          relationships.push({
+            id: noteDetail.id,
+            name: noteDetail.name,
+            strength: 1.0, // Direct relationship = 100%
+            relationshipType: 'direct'
+          });
+          processedNotes.add(noteDetail.id);
         }
-        
-        relationships.push({
-          id: noteDetail.id,
-          name: noteDetail.name,
-          strength: Math.max(0.3, avgStrength)
-        });
       });
-    } else {
-      // Fallback: use noteIds with generated names
-      const noteIds = topicNode.noteIds || [];
-      noteIds.forEach(noteId => {
-        const connectedLinks = graphData.links.filter(link => 
-          link.source === topicName || link.target === topicName
-        );
-        
-        let avgStrength = 0.5;
-        if (connectedLinks.length > 0) {
-          const totalStrength = connectedLinks.reduce((sum, link) => sum + (link.strength || 0.5), 0);
-          avgStrength = totalStrength / connectedLinks.length;
+    } else if (topicNode.noteIds && topicNode.noteIds.length > 0) {
+      topicNode.noteIds.forEach(noteId => {
+        if (!processedNotes.has(noteId)) {
+          relationships.push({
+            id: noteId,
+            name: `Note ${noteId}`,
+            strength: 1.0,
+            relationshipType: 'direct'
+          });
+          processedNotes.add(noteId);
         }
-        
-        relationships.push({
-          id: noteId,
-          name: `Note ${noteId}`,
-          strength: Math.max(0.3, avgStrength)
-        });
       });
     }
 
-    // Sort by strength (highest first)
-    return relationships.sort((a, b) => b.strength - a.strength);
+    // Step 2: Find connected topics and their notes
+    const connectedLinks = graphData.links.filter(link => 
+      link.source === topicName || link.target === topicName
+    );
+
+    console.log('Connected links for', topicName, ':', connectedLinks);
+
+    connectedLinks.forEach(link => {
+      // Get the other topic in this connection
+      const connectedTopicName = link.source === topicName ? link.target : link.source;
+      const linkStrength = link.strength || 0.5;
+      
+      // Find the connected topic node
+      const connectedTopicNode = graphData.nodes.find(node => 
+        node.topic === connectedTopicName || node.label === connectedTopicName
+      );
+      
+      if (connectedTopicNode) {
+        console.log('Found connected topic:', connectedTopicName, 'with strength:', linkStrength);
+        
+        // Add notes from connected topic
+        if (connectedTopicNode.noteDetails && connectedTopicNode.noteDetails.length > 0) {
+          connectedTopicNode.noteDetails.forEach(noteDetail => {
+            if (!processedNotes.has(noteDetail.id)) {
+              relationships.push({
+                id: noteDetail.id,
+                name: noteDetail.name,
+                strength: linkStrength, // Use the connection strength
+                relationshipType: 'indirect',
+                viaTopics: [connectedTopicName]
+              });
+              processedNotes.add(noteDetail.id);
+            }
+          });
+        } else if (connectedTopicNode.noteIds && connectedTopicNode.noteIds.length > 0) {
+          connectedTopicNode.noteIds.forEach(noteId => {
+            if (!processedNotes.has(noteId)) {
+              relationships.push({
+                id: noteId,
+                name: `Note ${noteId}`,
+                strength: linkStrength,
+                relationshipType: 'indirect',
+                viaTopics: [connectedTopicName]
+              });
+              processedNotes.add(noteId);
+            }
+          });
+        }
+      }
+    });
+
+    console.log('Final relationships for', topicName, ':', relationships);
+
+    // Sort by strength (highest first), then by relationship type (direct first)
+    return relationships.sort((a, b) => {
+      if (a.relationshipType === 'direct' && b.relationshipType === 'indirect') return -1;
+      if (a.relationshipType === 'indirect' && b.relationshipType === 'direct') return 1;
+      return b.strength - a.strength;
+    });
   };
 
   // NEW: Handle node hover
@@ -741,28 +757,42 @@ function KnowledgeGraph({ onSelectNote }) {
     setRelatedNotes(noteRelationships);
   };
 
-  // NEW: Handle hover end with delay
+  // UPDATED: Handle hover end with longer delay and popup state check
   const handleNodeHoverEnd = () => {
-    const timeout = setTimeout(() => {
-      setHoveredNode(null);
-      setRelatedNotes([]);
-    }, 100); // Small delay to allow moving to popup
-    
-    setHoverTimeout(timeout);
+    // Only hide if popup is not being hovered
+    if (!isPopupHovered) {
+      const timeout = setTimeout(() => {
+        // Double-check popup isn't hovered before hiding
+        if (!isPopupHovered) {
+          setHoveredNode(null);
+          setRelatedNotes([]);
+        }
+      }, 500); // Increased delay to 500ms
+      
+      setHoverTimeout(timeout);
+    }
   };
 
-  // NEW: Handle popup mouse enter (keep popup open)
+  // UPDATED: Handle popup mouse enter (keep popup open)
   const handlePopupMouseEnter = () => {
+    setIsPopupHovered(true);
+    // Clear any hide timeout
     if (hoverTimeout) {
       clearTimeout(hoverTimeout);
       setHoverTimeout(null);
     }
   };
 
-  // NEW: Handle popup mouse leave (close popup)
+  // UPDATED: Handle popup mouse leave (close popup after delay)
   const handlePopupMouseLeave = () => {
-    setHoveredNode(null);
-    setRelatedNotes([]);
+    setIsPopupHovered(false);
+    // Add delay before closing
+    const timeout = setTimeout(() => {
+      setHoveredNode(null);
+      setRelatedNotes([]);
+    }, 200); // Small delay in case user moves back to popup
+    
+    setHoverTimeout(timeout);
   };
 
   // NEW: Handle note click from popup
@@ -883,7 +913,7 @@ function KnowledgeGraph({ onSelectNote }) {
           near: 1,
           far: 1000
         }}
-        style={{ background: '#050a1c' }}
+        style={{ background: '#050a1c' }} // Clean dark background
       >
         <OrbitControls 
           enablePan={true}
@@ -900,7 +930,7 @@ function KnowledgeGraph({ onSelectNote }) {
         />
       </Canvas>
 
-      {/* NEW: Add hover popup */}
+      {/* UPDATED: Hover popup with better positioning */}
       {hoveredNode && relatedNotes.length > 0 && (
         <HoverPopup
           topic={hoveredNode}
