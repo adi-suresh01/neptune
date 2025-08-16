@@ -8,8 +8,17 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Python virtual environments
+venv/
+env/
+neptune-env/
+
 # Node modules
 node_modules/
+
+# Next.js build outputs
+.next/
+out/
 
 # Environment files
 .env
@@ -24,6 +33,28 @@ node_modules/
 
 # OS files
 .DS_Store
+
+# Build artifacts and distributions
+dist/
+build/
+target/
+
+# Tauri build artifacts
+*.dmg
+*.app
+*.msi
+*.deb
+*.rpm
+*.AppImage
+
+# PyInstaller
+*.spec
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
 
 context.txt
 

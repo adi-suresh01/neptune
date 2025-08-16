@@ -1,0 +1,29 @@
+[package]
+name = "app"
+version = "0.1.0"
+description = "Neptune AI Knowledge Graph"
+authors = ["Neptune Team"]
+license = ""
+repository = ""
+default-run = "app"
+edition = "2021"
+rust-version = "1.60"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "2.0", features = ["rustls-tls"] }
+tauri-plugin-log = "2.0"
+log = "0.4"
+tokio = { version = "1.0", features = ["full"] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
