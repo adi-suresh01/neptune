@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
 from app.db.database import engine
 from app.db.models import Base
+import uvicorn
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -15,7 +16,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "tauri://localhost"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,3 +37,14 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "message": "API is operational"}
+
+# ADD THIS BLOCK - Only runs when script is executed directly (bundled)
+# Won't interfere with uvicorn app.main:app development
+if __name__ == "__main__":
+    print("Starting Neptune Backend (bundled mode)...")
+    uvicorn.run(
+        app, 
+        host="127.0.0.1", 
+        port=8000,
+        log_level="info"
+    )

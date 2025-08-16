@@ -96,7 +96,7 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
     >
       {/* Header */}
       <div style={headerStyle}>
-        Related Notes for "{topic}"
+        Related Notes for {topic}
       </div>
       
       {/* Stats */}
@@ -438,52 +438,6 @@ const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
 };
 
 // Background stars component - same as before
-const Stars = () => {
-  const particlesRef = useRef();
-  const count = 5000;
-  
-  const positions = useMemo(() => {
-    const positions = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      const distance = Math.random() * 400 + 100;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.random() * Math.PI * 2;
-      
-      positions[i * 3] = distance * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = distance * Math.sin(phi) * Math.sin(theta);
-      positions[i * 3 + 2] = distance * Math.cos(phi);
-    }
-    return positions;
-  }, [count]);
-
-  useFrame(({ clock }) => {
-    if (particlesRef.current) {
-      particlesRef.current.rotation.y = clock.getElapsedTime() * 0.02;
-      particlesRef.current.rotation.z = clock.getElapsedTime() * 0.01;
-    }
-  });
-
-  return (
-    <points ref={particlesRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={count}
-          array={positions}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        size={1.5}
-        color="#ffffff"
-        transparent
-        opacity={0.7}
-        blending={THREE.AdditiveBlending}
-        sizeAttenuation={false}
-      />
-    </points>
-  );
-};
 
 // Main Knowledge Graph component with auto-loading
 function KnowledgeGraph({ onSelectNote }) {
@@ -491,7 +445,7 @@ function KnowledgeGraph({ onSelectNote }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [cacheStatus, setCacheStatus] = useState({ cached: false, fresh: false });
+  const [, setCacheStatus] = useState({ cached: false, fresh: false });
   const [generationStatus, setGenerationStatus] = useState({ is_generating: false, progress: "idle" });
 
   // UPDATED: Better hover state management
@@ -602,8 +556,11 @@ function KnowledgeGraph({ onSelectNote }) {
 
   // Auto-load on component mount
   useEffect(() => {
-    fetchKnowledgeGraph(false); // Try cached first
-  }, []);
+    const loadGraph = async () => {
+      await fetchKnowledgeGraph(false); // Try cached first
+    };
+    loadGraph();
+  }, []); // fetchKnowledgeGraph is not included because we want it to run only once on mount
 
   // Status polling
   useEffect(() => {

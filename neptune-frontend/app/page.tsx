@@ -7,7 +7,7 @@ import NotesDisplay from "@/components/NotesDisplay";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { File, EarthIcon as PlanetIcon, FileText, Network, Trash2, Plus } from "lucide-react";
+import { EarthIcon as PlanetIcon, FileText, Network, Trash2, Plus } from "lucide-react";
 
 export interface FileSystemItem {
   id: number;
@@ -31,8 +31,8 @@ const Home = () => {
   // Default to showing graph first
   const [showGraph, setShowGraph] = useState(true);
   const [showNotes, setShowNotes] = useState(false);
-  
-  const [parent, setParent] = useState(0);
+
+  const [, setParent] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
 
@@ -144,7 +144,8 @@ const Home = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-900 text-gray-100">
+    // 🎯 ONLY CHANGE: Add pt-7 (28px top padding) for macOS title bar area
+    <div className="flex h-screen bg-gray-900 text-gray-100 pt-7">
       {/* Sidebar */}
       <div className="w-70 border-r border-gray-700 flex flex-col">
         {/* Header with view toggle */}

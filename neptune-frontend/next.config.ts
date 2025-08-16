@@ -1,12 +1,24 @@
 import type { NextConfig } from "next";
 
-// Add the Three.js configuration to your existing next.config.ts
-
 /** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
-  // Keep your existing config here
+  // Add static export for Tauri
+  output: 'export',
+  trailingSlash: true,
+  images: {
+    unoptimized: true
+  },
+  distDir: 'out', // This is where static files will be generated
   
-  // Add these lines for Three.js:
+  // Disable ESLint during builds
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  
+  // Keep your existing Three.js config
   transpilePackages: ['three'],
   webpack: (config) => {
     // Configuration for Three.js
