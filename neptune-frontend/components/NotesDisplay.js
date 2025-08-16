@@ -6,6 +6,7 @@ import { Loader2, Folder, Save, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectedItem } from "@/app/page";
 import ReactMarkdown from "react-markdown";
+import { api } from "@/lib/api"; // 👈 Import the new API system
 
 const NotesDisplay = ({ selectedItem }) => {
   const [note, setNote] = useState(null);
@@ -40,9 +41,8 @@ const NotesDisplay = ({ selectedItem }) => {
         setLoading(true);
         setStatus("loading");
 
-        const res = await fetch(
-          `http://localhost:8000/api/filesystem/${selectedItem.id}`
-        );
+        // 👈 Use the new API system instead of hardcoded fetch
+        const res = await api.filesystem.get(selectedItem.id);
 
         if (!res.ok) {
           throw new Error(`Failed to fetch note: ${res.status}`);
@@ -77,14 +77,9 @@ const NotesDisplay = ({ selectedItem }) => {
     try {
       setStatus("saving");
       console.log("CONTENT:", content, selectedItem.id);
-      const res = await fetch(
-        `http://localhost:8000/api/filesystem/${selectedItem.id}/content`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
-        }
-      );
+      
+      // 👈 Use the new API system instead of hardcoded fetch
+      const res = await api.filesystem.update(selectedItem.id, { content });
 
       if (!res.ok) {
         throw new Error("Failed to save note");

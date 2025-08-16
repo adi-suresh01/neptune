@@ -1,13 +1,14 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FileSystemDisplay from "@/components/FileSystemDisplay";
 import NotesDisplay from "@/components/NotesDisplay";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EarthIcon as PlanetIcon, FileText, Network, Trash2, Plus } from "lucide-react";
+import { EarthIcon as PlanetIcon, FileText, Network, Trash2, Plus, Loader2 } from "lucide-react";
+import { api, checkBackendHealth } from "@/lib/api"; // 👈 Use the new API system
 
 export interface FileSystemItem {
   id: number;
@@ -31,12 +32,61 @@ const Home = () => {
   // Default to showing graph first
   const [showGraph, setShowGraph] = useState(true);
   const [showNotes, setShowNotes] = useState(false);
+  
+  // Backend connection state
+  const [backendReady, setBackendReady] = useState(false);
+  const [backendError, setBackendError] = useState<string | null>(null);
+  const [isCheckingBackend, setIsCheckingBackend] = useState(true);
 
   const [, setParent] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
 
   const generateRandomId = () => Math.floor(Math.random() * 1000000);
+
+  // Check backend health on startup
+  useEffect(() => {
+    let attempts = 0;
+    const maxAttempts = 15; // Increased attempts
+    
+    const checkBackend = async () => {
+      attempts++;
+      setIsCheckingBackend(true);
+      
+      try {
+        console.log(`🔍 Backend check attempt ${attempts}/${maxAttempts}`);
+        const isHealthy = await checkBackendHealth();
+        
+        if (isHealthy) {
+          console.log('✅ Backend is ready!');
+          setBackendReady(true);
+          setBackendError(null);
+          setIsCheckingBackend(false);
+          return;
+        }
+        
+        if (attempts >= maxAttempts) {
+          setBackendError(`Backend not available after ${maxAttempts} attempts`);
+          setIsCheckingBackend(false);
+          return;
+        }
+        
+        console.log(`⏳ Backend not ready, attempt ${attempts}/${maxAttempts}. Retrying in 3 seconds...`);
+        setTimeout(checkBackend, 3000);
+        
+      } catch (error) {
+        console.error('Backend health check failed:', error);
+        if (attempts >= maxAttempts) {
+          setBackendError('Failed to connect to Neptune backend');
+          setIsCheckingBackend(false);
+        } else {
+          setTimeout(checkBackend, 3000);
+        }
+      }
+    };
+    
+    checkBackend();
+  }, []);
 
   const refreshFileSystem = () => {
     setRefreshKey((prev) => prev + 1);
@@ -48,15 +98,12 @@ const Home = () => {
 
     const id = generateRandomId();
     try {
-      const res = await fetch("http://localhost:8000/api/filesystem", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: id,
-          name: file,
-          type: "file",
-          parent: null, // All files are root level now
-        }),
+      // 👈 Use the new API system instead of hardcoded fetch
+      const res = await api.filesystem.create({
+        id: id,
+        name: file,
+        type: "file",
+        parent: null,
       });
 
       if (!res.ok) throw new Error("Failed to create file");
@@ -69,7 +116,6 @@ const Home = () => {
     setShowFileForm(false);
   };
 
-  // NEW: Delete function
   const handleDeleteFile = async (fileId: number) => {
     if (!fileId) return;
     
@@ -77,16 +123,14 @@ const Home = () => {
     if (!confirmDelete) return;
 
     try {
-      const res = await fetch(`http://localhost:8000/api/filesystem/${fileId}`, {
-        method: "DELETE",
-      });
+      // 👈 Use the new API system instead of hardcoded fetch
+      const res = await api.filesystem.delete(fileId);
 
       if (!res.ok) throw new Error("Failed to delete file");
 
-      // If we're deleting the currently selected file, clear selection
       if (selectedItem && selectedItem.id === fileId) {
         setSelectedItem(null);
-        setShowGraph(true); // Switch back to graph view
+        setShowGraph(true);
         setShowNotes(false);
       }
 
@@ -105,9 +149,7 @@ const Home = () => {
       name: item.name,
     });
 
-    // REMOVED: folder handling since we don't have folders anymore
     if (item.type === "file") {
-      // When selecting a file, switch to notes view automatically
       setShowGraph(false);
       setShowNotes(true);
     }
@@ -128,29 +170,70 @@ const Home = () => {
     setShowNotes(true);
   };
 
-  // NEW: Handle note selection from graph
   const handleNoteSelectionFromGraph = (noteId: number) => {
-    // Set the selected item
     setSelectedItem({
       id: noteId,
       type: "file"
     });
     
-    // Switch to notes view
     setShowGraph(false);
     setShowNotes(true);
     
     console.log(`Switched to note ${noteId}`);
   };
 
+  // Show backend loading state
+  if (isCheckingBackend) {
+    return (
+      <div className="flex h-screen bg-gray-900 text-gray-100 pt-7">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center space-y-4">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+            <h2 className="text-xl font-semibold text-white">Starting Neptune...</h2>
+            <p className="text-gray-400">Please wait while the backend initializes</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show backend error state
+  if (backendError) {
+    return (
+      <div className="flex h-screen bg-gray-900 text-gray-100 pt-7">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center space-y-4 max-w-md text-center">
+            <div className="text-red-400 text-6xl">⚠️</div>
+            <h2 className="text-xl font-semibold text-red-400">Backend Connection Failed</h2>
+            <p className="text-gray-400">{backendError}</p>
+            <div className="flex space-x-2">
+              <Button 
+                onClick={() => window.location.reload()} 
+                variant="outline"
+                className="text-blue-400 border-blue-400 hover:bg-blue-400 hover:text-white"
+              >
+                Retry
+              </Button>
+              <Button 
+                onClick={() => setBackendError(null)} 
+                variant="outline"
+                className="text-green-400 border-green-400 hover:bg-green-400 hover:text-white"
+              >
+                Force Continue
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main app UI (only shows when backend is ready)
   return (
-    // 🎯 ONLY CHANGE: Add pt-7 (28px top padding) for macOS title bar area
     <div className="flex h-screen bg-gray-900 text-gray-100 pt-7">
       {/* Sidebar */}
       <div className="w-70 border-r border-gray-700 flex flex-col">
-        {/* Header with view toggle */}
         <div className="p-4 border-b border-gray-700">
-          {/* View Toggle Buttons */}
           <div className="flex space-x-2 mb-4">
             <Button
               onClick={showKnowledgeGraph}
@@ -172,7 +255,6 @@ const Home = () => {
             </Button>
           </div>
 
-          {/* UPDATED: File creation and delete buttons */}
           <div className="flex space-x-2 mb-4">
             <Button
               onClick={() => setShowFileForm(true)}
@@ -183,7 +265,6 @@ const Home = () => {
               <Plus className="w-4 h-4 mr-2" />
               New Note
             </Button>
-            {/* NEW: Delete button - only show when a file is selected */}
             {selectedItem && selectedItem.type === "file" && (
               <Button
                 onClick={() => handleDeleteFile(selectedItem.id)}
@@ -226,13 +307,12 @@ const Home = () => {
             onClick={() => {
               setParent(0);
               setSelectedItem(null);
-              showKnowledgeGraph(); // Switch to graph when clicking header
+              showKnowledgeGraph();
             }}
           >
             Notes
           </h2>
           
-          {/* NEW: Show selected file name */}
           {selectedItem && selectedItem.type === "file" && (
             <div className="text-sm text-gray-400 mt-2">
               Selected: {selectedItem.name}
@@ -240,7 +320,6 @@ const Home = () => {
           )}
         </div>
 
-        {/* File system display */}
         <div className="flex-1 overflow-auto">
           <FileSystemDisplay
             key={refreshKey}
@@ -249,7 +328,6 @@ const Home = () => {
           />
         </div>
 
-        {/* Bottom toggle */}
         <div className="p-4 border-t border-gray-700">
           <div className="text-xs text-gray-400 mb-2">
             Current View: {showGraph ? "Knowledge Graph" : "Notes Editor"}
