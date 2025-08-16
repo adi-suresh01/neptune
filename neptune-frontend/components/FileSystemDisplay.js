@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Folder, FileText } from "lucide-react";
+import { api } from "@/lib/api"; // 👈 Import the new API system
 
 const buildTree = (items) => {
   if (!Array.isArray(items)) {
@@ -124,7 +125,9 @@ const FileSystemDisplay = ({ onClick, selectedItem }) => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch("http://localhost:8000/api/filesystem");
+
+        // 👈 Use the new API system instead of hardcoded fetch
+        const res = await api.filesystem.list();
 
         if (!res.ok) {
           throw new Error(`Failed to fetch file system: ${res.status}`);

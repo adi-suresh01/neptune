@@ -7,14 +7,14 @@ import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 import { Loader2, RefreshCw, Zap, Network } from "lucide-react";
+import { api } from "@/lib/api"; // 👈 Import the new API system
 
-// HoverPopup component
+// HoverPopup component (unchanged)
 const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, onMouseLeave }) => {
   if (!topic || !relatedNotes || relatedNotes.length === 0) return null;
 
   const maxHeight = window.innerHeight * 0.6;
   
-  // IMPROVED: Better positioning to avoid screen edges
   const leftPos = Math.min(position.x + 15, window.innerWidth - 400);
   const topPos = Math.max(10, Math.min(position.y - 10, window.innerHeight - Math.min(400, maxHeight)));
   
@@ -55,7 +55,6 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
     overflowY: 'auto',
     overflowX: 'hidden',
     paddingRight: '4px',
-    // Custom scrollbar styling
     scrollbarWidth: 'thin',
     scrollbarColor: '#444 transparent'
   };
@@ -68,7 +67,7 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
     transition: 'background-color 0.2s',
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center', // Changed from flex-start to center
+    alignItems: 'center',
     gap: '8px'
   };
 
@@ -89,23 +88,19 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
       style={popupStyle}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      // ADDED: Prevent mouse events from bubbling up to the canvas
       onMouseDown={(e) => e.stopPropagation()}
       onMouseUp={(e) => e.stopPropagation()}
       onMouseMove={(e) => e.stopPropagation()}
     >
-      {/* Header */}
       <div style={headerStyle}>
         Related Notes for {topic}
       </div>
       
-      {/* Stats */}
       <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px', flexShrink: 0 }}>
         {relatedNotes.length} note{relatedNotes.length !== 1 ? 's' : ''} found
         {relatedNotes.length > 5 && <span style={{ color: '#60a5fa' }}> • Scroll to see all</span>}
       </div>
       
-      {/* Scrollable content - SIMPLIFIED */}
       <div style={scrollableContentStyle}>
         {relatedNotes.map((note, index) => (
           <div
@@ -127,7 +122,6 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
               onNoteClick(note.id);
             }}
           >
-            {/* SIMPLIFIED: Just note name and strength */}
             <span style={{ fontWeight: '500', flex: 1 }}>{note.name}</span>
             <span style={strengthBadgeStyle(note.strength)}>
               {(note.strength * 100).toFixed(0)}%
@@ -136,7 +130,6 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
         ))}
       </div>
       
-      {/* Scroll indicator if needed */}
       {relatedNotes.length > 5 && (
         <div style={{ 
           fontSize: '9px', 
@@ -152,7 +145,7 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
   );
 };
 
-// Node component - updated with hover detection
+// Node component (unchanged)
 const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = false, onClick, id, onHover, onHoverEnd }) => {
   const meshRef = useRef();
   const [hovered, setHovered] = useState(false);
@@ -180,11 +173,10 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
     event.stopPropagation();
     setHovered(false);
     document.body.style.cursor = 'auto';
-    // INCREASED DELAY: Give more time to move to popup
     if (onHoverEnd) {
       setTimeout(() => {
         onHoverEnd();
-      }, 300); // Increased from immediate to 300ms
+      }, 300);
     }
   };
 
@@ -229,7 +221,7 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
   );
 };
 
-// Enhanced laser beam with strength-based translucency and brightness
+// Edge component (unchanged)
 const Edge = ({ start, end, strength = 0.5 }) => {
   const coreRef = useRef();
   const glowRef = useRef();
@@ -251,21 +243,18 @@ const Edge = ({ start, end, strength = 0.5 }) => {
 
   useFrame(({ clock }) => {
     const time = clock.getElapsedTime();
-    const pulse = Math.sin(time * 3) * 0.1 + 0.9; // Reduced pulse variation for smoother effect
+    const pulse = Math.sin(time * 3) * 0.1 + 0.9;
     
     if (coreRef.current) {
-      // Brightness based on strength: stronger = more opaque and brighter
-      const baseOpacity = Math.max(0.3, strength); // Min 30% opacity, max based on strength
+      const baseOpacity = Math.max(0.3, strength);
       coreRef.current.material.opacity = baseOpacity * pulse;
       
-      // Emissive intensity based on strength: stronger = brighter glow
-      const baseEmissive = Math.max(0.2, strength * 0.8); // Min 20%, max 80% based on strength
+      const baseEmissive = Math.max(0.2, strength * 0.8);
       coreRef.current.material.emissiveIntensity = baseEmissive * pulse;
     }
     
     if (glowRef.current) {
-      // Outer glow also strength-dependent but more subtle
-      const glowOpacity = Math.max(0.1, strength * 0.5); // Min 10%, max 50% based on strength
+      const glowOpacity = Math.max(0.1, strength * 0.5);
       glowRef.current.material.opacity = glowOpacity * pulse;
       
       const glowEmissive = Math.max(0.05, strength * 0.3);
@@ -273,37 +262,32 @@ const Edge = ({ start, end, strength = 0.5 }) => {
     }
   });
 
-  // Consistent violet color for all laser beams
   const laserColor = '#8b5cf6';
-
-  // Radius also slightly affected by strength for visual clarity
-  const coreRadius = Math.max(0.03, strength * 0.12); // Slightly thicker for stronger connections
+  const coreRadius = Math.max(0.03, strength * 0.12);
   const glowRadius = coreRadius * 2.5;
 
   return (
     <group position={[position.x, position.y, position.z]} rotation={[rotation.x, rotation.y, rotation.z]}>
-      {/* Inner core - brightness varies with strength */}
       <mesh ref={coreRef}>
         <cylinderGeometry args={[coreRadius, coreRadius, length, 6]} />
         <meshStandardMaterial
           color={laserColor}
           emissive={laserColor}
-          emissiveIntensity={Math.max(0.2, strength * 0.8)} // Base emissive based on strength
+          emissiveIntensity={Math.max(0.2, strength * 0.8)}
           transparent
-          opacity={Math.max(0.3, strength)} // Base opacity based on strength
+          opacity={Math.max(0.3, strength)}
           toneMapped={false}
         />
       </mesh>
       
-      {/* Outer glow - also strength-dependent */}
       <mesh ref={glowRef}>
         <cylinderGeometry args={[glowRadius, glowRadius, length, 8]} />
         <meshStandardMaterial
           color={laserColor}
           emissive={laserColor}
-          emissiveIntensity={Math.max(0.05, strength * 0.3)} // Base glow based on strength
+          emissiveIntensity={Math.max(0.05, strength * 0.3)}
           transparent
-          opacity={Math.max(0.1, strength * 0.5)} // Base glow opacity based on strength
+          opacity={Math.max(0.1, strength * 0.5)}
           toneMapped={false}
           blending={THREE.AdditiveBlending}
         />
@@ -312,7 +296,7 @@ const Edge = ({ start, end, strength = 0.5 }) => {
   );
 };
 
-// GraphScene component
+// GraphScene component (unchanged)
 const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
   const [selectedNode, setSelectedNode] = useState(null);
   const [hoveredNode, setHoveredNode] = useState(null);
@@ -376,7 +360,6 @@ const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
       <ambientLight intensity={0.2} />
       <directionalLight position={[10, 10, 5]} intensity={0.7} />
       
-      {/* Rest of your nodes and edges */}
       {data.nodes.map((node) => (
         <Node
           key={node.id}
@@ -386,8 +369,8 @@ const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
           nodeSize={(node.size / 50) + 1}
           selected={selectedNode === node.id}
           onClick={handleNodeClick}
-          onHover={onNodeHover}     // This will be passed from the main component
-          onHoverEnd={onNodeHoverEnd} // This will be passed from the main component
+          onHover={onNodeHover}
+          onHoverEnd={onNodeHoverEnd}
         />
       ))}
       
@@ -422,7 +405,6 @@ const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
         />
       </EffectComposer>
       
-      {/* Hover popup for related notes */}
       {hoveredNode && (
         <HoverPopup
           topic={hoveredNode.id}
@@ -437,9 +419,7 @@ const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
   );
 };
 
-// Background stars component - same as before
-
-// Main Knowledge Graph component with auto-loading
+// Main Knowledge Graph component
 function KnowledgeGraph({ onSelectNote }) {
   const [data, setData] = useState({ nodes: [], links: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -448,14 +428,12 @@ function KnowledgeGraph({ onSelectNote }) {
   const [, setCacheStatus] = useState({ cached: false, fresh: false });
   const [generationStatus, setGenerationStatus] = useState({ is_generating: false, progress: "idle" });
 
-  // UPDATED: Better hover state management
   const [hoveredNode, setHoveredNode] = useState(null);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
   const [relatedNotes, setRelatedNotes] = useState([]);
   const [hoverTimeout, setHoverTimeout] = useState(null);
   const [isPopupHovered, setIsPopupHovered] = useState(false);
 
-  // Process fetched data to add positions to nodes
   const processGraphData = (data) => {
     if (!data.nodes || data.nodes.length === 0) {
       return { nodes: [], links: [] };
@@ -481,7 +459,7 @@ function KnowledgeGraph({ onSelectNote }) {
     return { nodes, links: data.links || [] };
   };
 
-  // Fetch knowledge graph data with smart caching
+  // 👈 Updated to use new API system
   const fetchKnowledgeGraph = async (force = false) => {
     try {
       setIsLoading(true);
@@ -489,8 +467,7 @@ function KnowledgeGraph({ onSelectNote }) {
       
       console.log(`${force ? 'Force fetching' : 'Auto-loading'} knowledge graph...`);
       
-      // Always try to get cached data first (instant)
-      const response = await fetch('http://localhost:8000/api/knowledge-graph/');
+      const response = await api.knowledgeGraph.get();
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -499,17 +476,14 @@ function KnowledgeGraph({ onSelectNote }) {
       const rawData = await response.json();
       console.log('Graph data received:', rawData);
       
-      // Check if we got actual data or empty state
       if (rawData.nodes && rawData.nodes.length > 0) {
         const processedData = processGraphData(rawData);
         setData(processedData);
         setCacheStatus({ cached: true, fresh: !force });
       } else if (force) {
-        // If forcing and no data, try to generate
         console.log('No cached data found, generating fresh...');
         await handleRefreshGraph();
       } else {
-        // Show empty state with option to generate
         setData({ nodes: [], links: [] });
         setCacheStatus({ cached: false, fresh: false });
       }
@@ -522,18 +496,13 @@ function KnowledgeGraph({ onSelectNote }) {
     }
   };
 
-  // Refresh the graph data (force generation)
+  // 👈 Updated to use new API system
   const handleRefreshGraph = async () => {
     try {
       setRefreshing(true);
       console.log('Starting background knowledge graph generation...');
       
-      const response = await fetch('http://localhost:8000/api/knowledge-graph/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await api.knowledgeGraph.refresh();
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -554,34 +523,32 @@ function KnowledgeGraph({ onSelectNote }) {
     }
   };
 
-  // Auto-load on component mount
   useEffect(() => {
     const loadGraph = async () => {
-      await fetchKnowledgeGraph(false); // Try cached first
+      await fetchKnowledgeGraph(false);
     };
     loadGraph();
-  }, []); // fetchKnowledgeGraph is not included because we want it to run only once on mount
+  }, []);
 
-  // Status polling
+  // 👈 Updated to use new API system
   useEffect(() => {
     let statusInterval;
     
     if (generationStatus.is_generating) {
       statusInterval = setInterval(async () => {
         try {
-          const response = await fetch('http://localhost:8000/api/knowledge-graph/status');
+          const response = await api.knowledgeGraph.status();
           const status = await response.json();
           
           setGenerationStatus(status.generation_status || { is_generating: false, progress: "idle" });
           
-          // If generation completed, refresh the graph data
           if (!status.generation_status.is_generating && status.has_cached_graph) {
-            fetchKnowledgeGraph(false); // Reload cached data
+            fetchKnowledgeGraph(false);
           }
         } catch (err) {
           console.error("Error checking status:", err);
         }
-      }, 2000); // Check every 2 seconds
+      }, 2000);
     }
     
     return () => {
@@ -589,18 +556,14 @@ function KnowledgeGraph({ onSelectNote }) {
     };
   }, [generationStatus.is_generating]);
 
-  // Handle node selection
   const handleSelectNode = (nodeId) => {
     console.log(`Selected node: ${nodeId}`);
-    // Future: Show related notes or additional info
   };
 
-  // NEW: Function to calculate note relationships based on graph connections
   const calculateNoteRelationships = (topicName, graphData) => {
     const relationships = [];
-    const processedNotes = new Set(); // Prevent duplicates
+    const processedNotes = new Set();
     
-    // Find the main topic node
     const topicNode = graphData.nodes.find(node => node.topic === topicName || node.label === topicName);
     if (!topicNode) {
       console.log('Topic node not found:', topicName);
@@ -609,14 +572,13 @@ function KnowledgeGraph({ onSelectNote }) {
 
     console.log('Found topic node:', topicNode);
 
-    // Step 1: Add notes directly associated with this topic
     if (topicNode.noteDetails && topicNode.noteDetails.length > 0) {
       topicNode.noteDetails.forEach(noteDetail => {
         if (!processedNotes.has(noteDetail.id)) {
           relationships.push({
             id: noteDetail.id,
             name: noteDetail.name,
-            strength: 1.0, // Direct relationship = 100%
+            strength: 1.0,
             relationshipType: 'direct'
           });
           processedNotes.add(noteDetail.id);
@@ -636,7 +598,6 @@ function KnowledgeGraph({ onSelectNote }) {
       });
     }
 
-    // Step 2: Find connected topics and their notes
     const connectedLinks = graphData.links.filter(link => 
       link.source === topicName || link.target === topicName
     );
@@ -644,11 +605,9 @@ function KnowledgeGraph({ onSelectNote }) {
     console.log('Connected links for', topicName, ':', connectedLinks);
 
     connectedLinks.forEach(link => {
-      // Get the other topic in this connection
       const connectedTopicName = link.source === topicName ? link.target : link.source;
       const linkStrength = link.strength || 0.5;
       
-      // Find the connected topic node
       const connectedTopicNode = graphData.nodes.find(node => 
         node.topic === connectedTopicName || node.label === connectedTopicName
       );
@@ -656,14 +615,13 @@ function KnowledgeGraph({ onSelectNote }) {
       if (connectedTopicNode) {
         console.log('Found connected topic:', connectedTopicName, 'with strength:', linkStrength);
         
-        // Add notes from connected topic
         if (connectedTopicNode.noteDetails && connectedTopicNode.noteDetails.length > 0) {
           connectedTopicNode.noteDetails.forEach(noteDetail => {
             if (!processedNotes.has(noteDetail.id)) {
               relationships.push({
                 id: noteDetail.id,
                 name: noteDetail.name,
-                strength: linkStrength, // Use the connection strength
+                strength: linkStrength,
                 relationshipType: 'indirect',
                 viaTopics: [connectedTopicName]
               });
@@ -689,7 +647,6 @@ function KnowledgeGraph({ onSelectNote }) {
 
     console.log('Final relationships for', topicName, ':', relationships);
 
-    // Sort by strength (highest first), then by relationship type (direct first)
     return relationships.sort((a, b) => {
       if (a.relationshipType === 'direct' && b.relationshipType === 'indirect') return -1;
       if (a.relationshipType === 'indirect' && b.relationshipType === 'direct') return 1;
@@ -697,9 +654,7 @@ function KnowledgeGraph({ onSelectNote }) {
     });
   };
 
-  // NEW: Handle node hover
   const handleNodeHover = (topicName, position) => {
-    // Clear any existing timeout
     if (hoverTimeout) {
       clearTimeout(hoverTimeout);
       setHoverTimeout(null);
@@ -708,59 +663,48 @@ function KnowledgeGraph({ onSelectNote }) {
     setHoveredNode(topicName);
     setHoverPosition(position);
     
-    // Calculate related notes for this topic
     const noteRelationships = calculateNoteRelationships(topicName, data);
     console.log('Note relationships for', topicName, ':', noteRelationships);
     setRelatedNotes(noteRelationships);
   };
 
-  // UPDATED: Handle hover end with longer delay and popup state check
   const handleNodeHoverEnd = () => {
-    // Only hide if popup is not being hovered
     if (!isPopupHovered) {
       const timeout = setTimeout(() => {
-        // Double-check popup isn't hovered before hiding
         if (!isPopupHovered) {
           setHoveredNode(null);
           setRelatedNotes([]);
         }
-      }, 500); // Increased delay to 500ms
+      }, 500);
       
       setHoverTimeout(timeout);
     }
   };
 
-  // UPDATED: Handle popup mouse enter (keep popup open)
   const handlePopupMouseEnter = () => {
     setIsPopupHovered(true);
-    // Clear any hide timeout
     if (hoverTimeout) {
       clearTimeout(hoverTimeout);
       setHoverTimeout(null);
     }
   };
 
-  // UPDATED: Handle popup mouse leave (close popup after delay)
   const handlePopupMouseLeave = () => {
     setIsPopupHovered(false);
-    // Add delay before closing
     const timeout = setTimeout(() => {
       setHoveredNode(null);
       setRelatedNotes([]);
-    }, 200); // Small delay in case user moves back to popup
+    }, 200);
     
     setHoverTimeout(timeout);
   };
 
-  // NEW: Handle note click from popup
   const handleNoteClick = (noteId) => {
     console.log(`Switching to note ${noteId}`);
     
-    // Close the popup
     setHoveredNode(null);
     setRelatedNotes([]);
     
-    // Call the parent function to switch to notes view
     if (onSelectNote) {
       onSelectNote(noteId);
     }
@@ -831,26 +775,6 @@ function KnowledgeGraph({ onSelectNote }) {
 
   return (
     <div className="w-full h-full bg-[#050a1c] relative">
-      {/* Status indicator */}
-      {/* <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2">
-        <div className="text-white text-sm font-medium">
-          {generationStatus.is_generating ? (
-            <>
-              <Loader2 className="w-3 h-3 animate-spin inline mr-2" />
-              Generating Knowledge Graph
-            </>
-          ) : cacheStatus.fresh ? 'Fresh Knowledge Graph' : 'Cached Knowledge Graph'}
-        </div>
-        <div className="text-xs text-gray-400 mt-1">
-          {generationStatus.is_generating ? (
-            `Status: ${generationStatus.progress}`
-          ) : (
-            `${data.nodes.length} topics, ${data.links.length} connections`
-          )}
-        </div>
-      </div> */}
-
-      {/* Control buttons */}
       <div className="absolute top-4 right-4 z-10 space-x-2">
         <button
           onClick={handleRefreshGraph}
@@ -862,7 +786,6 @@ function KnowledgeGraph({ onSelectNote }) {
         </button>
       </div>
       
-      {/* Three.js canvas */}
       <Canvas 
         camera={{ 
           position: [0, 0, 100], 
@@ -870,7 +793,7 @@ function KnowledgeGraph({ onSelectNote }) {
           near: 1,
           far: 1000
         }}
-        style={{ background: '#050a1c' }} // Clean dark background
+        style={{ background: '#050a1c' }}
       >
         <OrbitControls 
           enablePan={true}
@@ -887,7 +810,6 @@ function KnowledgeGraph({ onSelectNote }) {
         />
       </Canvas>
 
-      {/* UPDATED: Hover popup with better positioning */}
       {hoveredNode && relatedNotes.length > 0 && (
         <HoverPopup
           topic={hoveredNode}

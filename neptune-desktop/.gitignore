@@ -50,3 +50,6 @@ pids
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Local copy of backend binary
+binaries/
