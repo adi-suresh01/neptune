@@ -66,7 +66,6 @@ async def root():
         "status": "healthy"
     }
 
-# 👈 FIX: Make sure health endpoint returns the expected format
 @app.get("/health")
 async def health_check():
     return {

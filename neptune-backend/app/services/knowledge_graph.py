@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import json
 import os
 import threading
+import logging
 
 from app.services.llm_service import extract_topics_from_notes
 from app.services.visualize_topics import create_topic_graph, graph_to_frontend_format
@@ -11,6 +12,7 @@ from app.db.models import FileSystem
 from app.db.database import SessionLocal
 from app.core.settings import settings
 
+logger = logging.getLogger(__name__)
 # Cache for the latest graph data
 latest_graph_data = None
 generation_status = {
@@ -38,11 +40,11 @@ def get_cached_graph_data() -> Dict:
                 print("✅ Using cached knowledge graph from file")
                 return cached_data['graph']
         
-        print("🔄 Cache expired or missing")
+        logger.info("Cache expired or missing")
         return {"nodes": [], "links": []}
         
     except Exception as e:
-        print(f"❌ Cache error: {e}")
+        logger.warning("Cache error: %s", e)
         return {"nodes": [], "links": []}
 
 def cache_graph_data(graph_data: Dict):
@@ -61,10 +63,10 @@ def cache_graph_data(graph_data: Dict):
             json.dump(cache_data, f)
         
         latest_graph_data = graph_data
-        print("✅ Knowledge graph cached (file + memory)")
+        logger.info("Knowledge graph cached")
         
     except Exception as e:
-        print(f"❌ Cache save error: {e}")
+        logger.warning("Cache save error: %s", e)
 
 def get_latest_graph_data() -> Dict:
     """Get the latest graph data from memory or file cache"""
@@ -96,7 +98,7 @@ def generate_knowledge_graph_background():
     generation_status["finished_at"] = None
     generation_status["last_error"] = None
     
-    print("🔄 [BACKGROUND] Generating knowledge graph...")
+    logger.info("Generating knowledge graph in background")
     
     # Create new database session
     db = SessionLocal()
@@ -112,7 +114,7 @@ def generate_knowledge_graph_background():
         ).all()
         
         if not notes:
-            print("❌ [BACKGROUND] No notes found in database")
+            logger.info("No notes found in database")
             empty_graph = {"nodes": [], "links": []}
             cache_graph_data(empty_graph)
             return
@@ -127,13 +129,13 @@ def generate_knowledge_graph_background():
                 })
         
         if not formatted_notes:
-            print("❌ [BACKGROUND] No meaningful content found in notes")
+            logger.info("No meaningful content found in notes")
             empty_graph = {"nodes": [], "links": []}
             cache_graph_data(empty_graph)
             return
         
         generation_status["progress"] = f"processing_{len(formatted_notes)}_notes"
-        print(f"🔄 [BACKGROUND] Processing {len(formatted_notes)} notes with Ollama...")
+        logger.info("Processing %s notes with Ollama", len(formatted_notes))
         
         # Process with Ollama (topic extraction) - SLOW BUT IN BACKGROUND
         topics_data = extract_topics_from_notes(formatted_notes)
@@ -149,14 +151,14 @@ def generate_knowledge_graph_background():
             cache_graph_data(graph_data)
             generation_status["progress"] = "completed"
             generation_status["finished_at"] = datetime.now().isoformat()
-            print(f"✅ [BACKGROUND] Knowledge graph generated with {len(graph_data.get('nodes', []))} nodes")
+            logger.info("Knowledge graph generated with %s nodes", len(graph_data.get("nodes", [])))
         else:
-            print("❌ [BACKGROUND] No topics extracted from notes")
+            logger.info("No topics extracted from notes")
             empty_graph = {"nodes": [], "links": []}
             cache_graph_data(empty_graph)
     
     except Exception as e:
-        print(f"❌ [BACKGROUND] Error generating knowledge graph: {e}")
+        logger.error("Error generating knowledge graph: %s", e)
         generation_status["progress"] = f"error: {str(e)}"
         generation_status["last_error"] = str(e)
         empty_graph = {"nodes": [], "links": []}
@@ -167,12 +169,12 @@ def generate_knowledge_graph_background():
         generation_status["is_generating"] = False
         if generation_status["finished_at"] is None:
             generation_status["finished_at"] = datetime.now().isoformat()
-        print("✅ [BACKGROUND] Graph generation completed")
+        logger.info("Graph generation completed")
 
 def start_background_generation():
     """Start knowledge graph generation in background thread"""
     if not generation_lock.acquire(blocking=False):
-        print("⚠️  [BACKGROUND] Generation already running")
+        logger.info("Generation already running")
         return False
     def _run():
         try:
@@ -182,7 +184,7 @@ def start_background_generation():
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
-    print("🚀 [BACKGROUND] Knowledge graph generation started in background")
+    logger.info("Knowledge graph generation started")
     return True
 
 def invalidate_cache():
@@ -193,6 +195,6 @@ def invalidate_cache():
     try:
         if os.path.exists(cache_file):
             os.remove(cache_file)
-        print("✅ Cache invalidated")
+        logger.info("Cache invalidated")
     except Exception as e:
-        print(f"❌ Error invalidating cache: {e}")
+        logger.warning("Error invalidating cache: %s", e)

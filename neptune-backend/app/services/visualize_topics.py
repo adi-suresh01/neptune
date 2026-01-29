@@ -1,11 +1,11 @@
-import os
-import requests
 from typing import List, Dict, Any, Tuple
 import networkx as nx
 import itertools
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 def find_topic_relationships(topics: List[str]) -> List[Tuple[str, str, float]]:
     """
@@ -23,14 +23,14 @@ def find_topic_relationships(topics: List[str]) -> List[Tuple[str, str, float]]:
     # Generate all possible pairs of topics
     topic_pairs = list(itertools.combinations(topics, 2))
     
-    print(f"🔄 Finding relationships for {len(topic_pairs)} topic pairs...")
+    logger.info("Finding relationships for %s topic pairs", len(topic_pairs))
     
     edges = []
     for topic1, topic2 in topic_pairs:
         strength = get_relationship_strength(topic1, topic2)
         edges.append((topic1, topic2, strength))
     
-    print(f"✅ Found {len(edges)} relationships between topics")
+    logger.info("Found %s relationships between topics", len(edges))
     return edges
 
 def get_relationship_strength(topic1: str, topic2: str) -> float:
@@ -57,16 +57,15 @@ def get_relationship_strength(topic1: str, topic2: str) -> float:
         response = llm_service._call_ollama(prompt, max_tokens=10)
         strength = float(response.strip())
         strength = max(0.1, min(1.0, strength))
-        print(f"📊 {topic1} ↔ {topic2}: {strength}")
+        logger.debug("Relationship %s-%s: %s", topic1, topic2, strength)
         return strength
     except Exception as e:
-        print(f"❌ Error getting relationship for {topic1}-{topic2}: {e}")
+        logger.warning("Error getting relationship for %s-%s: %s", topic1, topic2, e)
         return 0.3  # Default relationship
 
 def create_topic_graph(topics_data: List[Dict[str, Any]]) -> nx.Graph:
     """
     Create a NetworkX graph from topic extraction results.
-    FIXED: Removed async complications, pure sync version.
     """
     G = nx.Graph()
     
@@ -85,7 +84,7 @@ def create_topic_graph(topics_data: List[Dict[str, Any]]) -> nx.Graph:
             note_ids=note_ids
         )
     
-    # Find and add relationships between topics (SYNC)
+    # Find and add relationships between topics
     topic_relationships = find_topic_relationships(topic_names)
     for topic1, topic2, strength in topic_relationships:
         if strength > 0.2:  # Only add meaningful relationships
@@ -97,7 +96,6 @@ def graph_to_frontend_format(G: nx.Graph) -> Dict:
     """
     Convert NetworkX graph to a frontend-friendly JSON structure with note details
     """
-    # NEW: Get note names from database
     from app.db.database import SessionLocal
     from app.db.models import FileSystem
     
@@ -106,14 +104,13 @@ def graph_to_frontend_format(G: nx.Graph) -> Dict:
         notes = db.query(FileSystem).filter(FileSystem.type == "file").all()
         note_names = {note.id: note.name for note in notes}
     except Exception as e:
-        print(f"Error fetching note names: {e}")
+        logger.warning("Error fetching note names: %s", e)
         note_names = {}
     finally:
         db.close()
     
     nodes = []
     for node, data in G.nodes(data=True):
-        # NEW: Include note details with names
         note_details = []
         for note_id_str in data.get("note_ids", []):
             try:
@@ -136,7 +133,7 @@ def graph_to_frontend_format(G: nx.Graph) -> Dict:
             "size": data.get("size", 30),
             "noteCount": data.get("note_count", 0),
             "noteIds": data.get("note_ids", []),
-            "noteDetails": note_details  # NEW: Include note names
+            "noteDetails": note_details
         })
     
     links = []
@@ -151,6 +148,3 @@ def graph_to_frontend_format(G: nx.Graph) -> Dict:
         "nodes": nodes,
         "links": links
     }
-
-# REMOVED ALL ASYNC FUNCTIONS THAT WERE CAUSING CONFLICTS
-# We'll stick with sync for now to avoid event loop issues

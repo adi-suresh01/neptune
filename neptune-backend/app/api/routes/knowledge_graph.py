@@ -1,5 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -31,7 +34,7 @@ async def get_knowledge_graph():
             }
         
     except Exception as e:
-        print(f"Error getting knowledge graph: {e}")
+        logger.error("Error getting knowledge graph: %s", e)
         return {
             "nodes": [], 
             "links": [], 
@@ -55,7 +58,7 @@ async def refresh_knowledge_graph():
                 "generating": True
             }
         
-        print("🔄 Starting background knowledge graph generation...")
+        logger.info("Starting background knowledge graph generation")
         invalidate_cache()
         
         # Start background generation (RETURNS IMMEDIATELY)
@@ -75,7 +78,7 @@ async def refresh_knowledge_graph():
         }
         
     except Exception as e:
-        print(f"Error starting knowledge graph generation: {e}")
+        logger.error("Error starting knowledge graph generation: %s", e)
         return {
             "error": str(e),
             "message": "Failed to start knowledge graph generation"
@@ -110,5 +113,5 @@ async def invalidate_knowledge_graph_cache():
         return {"message": "All caches invalidated"}
         
     except Exception as e:
-        print(f"Error invalidating cache: {e}")
+        logger.error("Error invalidating cache: %s", e)
         return {"error": str(e)}
