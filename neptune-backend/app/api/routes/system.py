@@ -2,6 +2,8 @@ from fastapi import APIRouter
 from sqlalchemy import text
 from app.db.database import engine
 from app.services.llm_service import llm_service
+from app.core.settings import settings
+from app.services.storage import storage_client
 
 router = APIRouter()
 
@@ -23,4 +25,31 @@ async def readiness_check():
         "ready": db_ok and llm_status.get("ok", False),
         "database": {"ok": db_ok, "error": db_error},
         "llm": llm_status,
+    }
+
+
+@router.get("/status")
+async def system_status():
+    storage_status = storage_client.healthcheck()
+    return {
+        "environment": settings.environment,
+        "mode": settings.storage_mode,
+        "host": settings.host,
+        "port": settings.port,
+        "cors": {
+            "allow_all": settings.cors_allow_all,
+            "origins": settings.resolved_cors_origins(),
+        },
+        "llm": {
+            "endpoint": settings.ollama_url,
+            "model": settings.ollama_model,
+        },
+        "storage": {
+            "enabled": storage_status.enabled,
+            "ok": storage_status.ok,
+            "endpoint": settings.s3_endpoint,
+            "bucket": settings.s3_bucket,
+            "prefix": settings.s3_prefix,
+            "error": storage_status.error,
+        },
     }
