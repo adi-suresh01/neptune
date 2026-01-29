@@ -35,7 +35,11 @@ class StorageClient:
                 aws_access_key_id=settings.s3_access_key,
                 aws_secret_access_key=settings.s3_secret_key,
                 region_name=settings.s3_region or "us-east-1",
-                config=Config(connect_timeout=3, read_timeout=5, retries={"max_attempts": 2}),
+                config=Config(
+                    connect_timeout=settings.s3_connect_timeout_seconds,
+                    read_timeout=settings.s3_read_timeout_seconds,
+                    retries={"max_attempts": settings.s3_max_retries},
+                ),
             )
             logger.info("Storage client enabled for bucket %s", self.bucket)
         else:
