@@ -1,39 +1,50 @@
-import os
 import requests
 import json
 from typing import List, Dict, Any
 from dotenv import load_dotenv
+from app.core.settings import settings
+import logging
 
 load_dotenv()
 
 class LLMService:
-    def __init__(self, model_name="llama3.1:8b"):
-        self.model_name = model_name
-        self.ollama_url = os.getenv("OLLAMA_URL", "http://100.122.73.92:11434")
-        print(f"Initializing LLM service with model: {model_name}")
-        print(f"Connecting to Ollama at: {self.ollama_url}")
-        
-        # Test
+    def __init__(self, model_name: str | None = None):
+        self.model_name = model_name or settings.ollama_model
+        self.ollama_url = settings.ollama_url
+        self._checked_models = False
+        self.session = requests.Session()
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("LLM service configured with model %s", self.model_name)
+        self.logger.info("LLM endpoint: %s", self.ollama_url)
+
+    def _maybe_check_models(self) -> None:
+        if self._checked_models or not settings.ollama_healthcheck:
+            return
+        self._checked_models = True
+
         try:
-            response = requests.get(f"{self.ollama_url}/api/tags", timeout=10)
+            response = self.session.get(
+                f"{self.ollama_url}/api/tags",
+                timeout=min(settings.ollama_timeout_seconds, 10),
+            )
             if response.status_code == 200:
                 available_models = [model["name"] for model in response.json().get("models", [])]
-                print(f"Ollama is running! Available models: {available_models}")
-                
-                # Check if our preferred model is available
-                if model_name not in available_models:
-                    print(f"Model {model_name} not found. Available: {available_models}")
-                    if available_models:
-                        self.model_name = available_models[0]
-                        print(f"Using {self.model_name} instead")
+                self.logger.info("Ollama available models: %s", available_models)
+                if self.model_name not in available_models and available_models:
+                    self.logger.warning(
+                        "Model %s not found, using %s instead",
+                        self.model_name,
+                        available_models[0],
+                    )
+                    self.model_name = available_models[0]
             else:
-                print("Ollama is running but may have issues")
+                self.logger.warning("Ollama tags endpoint returned %s", response.status_code)
         except Exception as e:
-            print(f"Cannot connect to Ollama server. Error: {e}")
-            print("Make sure your server is running and accessible via Tailscale")
+            self.logger.warning("Ollama healthcheck failed: %s", e)
     
     def _call_ollama(self, prompt: str, max_tokens: int = 10) -> str:
         """Send a request to Ollama server and get response"""
+        self._maybe_check_models()
         try:
             request_data = {
                 "model": self.model_name,
@@ -46,27 +57,27 @@ class LLMService:
                 }
             }
             
-            print(f"Calling Ollama with model {self.model_name}...")
-            response = requests.post(
+            self.logger.info("Calling Ollama with model %s", self.model_name)
+            response = self.session.post(
                 f"{self.ollama_url}/api/generate",
                 json=request_data,
-                timeout=120
+                timeout=settings.ollama_timeout_seconds,
             )
             
             if response.status_code == 200:
                 response_data = response.json()
                 result = response_data.get("response", "").strip()
-                print(f"Got response: '{result}'")
+                self.logger.info("Received Ollama response")
                 return result
             else:
-                print(f"Ollama API error: Status {response.status_code}")
+                self.logger.warning("Ollama API error: status %s", response.status_code)
                 return "unclassified"
                 
         except requests.exceptions.Timeout:
-            print("Ollama request timed out - Intel Mac might be slow")
+            self.logger.warning("Ollama request timed out")
             return "unclassified"
         except Exception as e:
-            print(f"Error calling Ollama: {e}")
+            self.logger.error("Error calling Ollama: %s", e)
             return "unclassified"
     
     def extract_topic_from_note(self, note_content: str, note_id: str) -> Dict[str, Any]:
@@ -88,21 +99,20 @@ class LLMService:
             topic = response.split()[0] if response.split() else "unclassified"
             topic = ''.join(char for char in topic if char.isalnum()).lower()
             
-            print(f"Extracted topic '{topic}' for note {note_id}")
+            self.logger.info("Extracted topic '%s' for note %s", topic, note_id)
             return {"topic": topic, "note_id": note_id}
             
         except Exception as e:
-            print(f"Error extracting topic for note {note_id}: {e}")
+            self.logger.error("Error extracting topic for note %s: %s", note_id, e)
             return {"topic": "unclassified", "note_id": note_id}
     
     def process_notes(self, notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Process notes and return consolidated topics"""
-        print(f"Processing {len(notes)} notes using Ollama on Intel Mac server...")
-        print("Note: This might be slower on Intel Mac, please be patient...")
+        self.logger.info("Processing %s notes via Ollama", len(notes))
         
         extracted_topics = []
         for i, note in enumerate(notes):
-            print(f"Processing note {i+1}/{len(notes)}: {note['id']}")
+            self.logger.info("Processing note %s/%s: %s", i + 1, len(notes), note["id"])
             result = self.extract_topic_from_note(note["content"], note["id"])
             extracted_topics.append(result)
         
@@ -122,8 +132,19 @@ class LLMService:
             for topic, note_ids in topic_map.items()
         ]
         
-        print(f"Consolidated into {len(result)} topics")
+        self.logger.info("Consolidated into %s topics", len(result))
         return result
+
+    def healthcheck(self) -> Dict[str, Any]:
+        try:
+            response = self.session.get(
+                f"{self.ollama_url}/api/tags",
+                timeout=min(settings.ollama_timeout_seconds, 5),
+            )
+            ok = response.status_code == 200
+            return {"ok": ok, "status_code": response.status_code}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
 # Create a singleton instance
 llm_service = LLMService()
@@ -153,7 +174,7 @@ def get_llm_response(prompt: str) -> str:
 
 def set_llm_model(model_name: str):
     """Change the AI model being used"""
-    print(f"Switching to model: {model_name}")
+    llm_service.logger.info("Switching to model: %s", model_name)
     llm_service.model_name = model_name
 
 def get_available_models() -> list:
