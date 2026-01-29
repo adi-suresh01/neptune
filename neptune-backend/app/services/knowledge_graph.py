@@ -89,7 +89,7 @@ def get_generation_status() -> Dict:
     return generation_status.copy()
 
 def generate_knowledge_graph_background():
-    """BACKGROUND TASK: Generate knowledge graph without blocking server"""
+    """Generate knowledge graph without blocking the server."""
     global generation_status
     
     generation_status["is_generating"] = True
@@ -137,7 +137,7 @@ def generate_knowledge_graph_background():
         generation_status["progress"] = f"processing_{len(formatted_notes)}_notes"
         logger.info("Processing %s notes with Ollama", len(formatted_notes))
         
-        # Process with Ollama (topic extraction) - SLOW BUT IN BACKGROUND
+        # Process with Ollama (topic extraction).
         topics_data = extract_topics_from_notes(formatted_notes)
         
         if topics_data:
