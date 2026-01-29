@@ -59,7 +59,13 @@ async def refresh_knowledge_graph():
         invalidate_cache()
         
         # Start background generation (RETURNS IMMEDIATELY)
-        start_background_generation()
+        started = start_background_generation()
+        if not started:
+            return {
+                "message": "Knowledge graph generation already in progress",
+                "status": get_generation_status(),
+                "generating": True
+            }
         
         return {
             "message": "Knowledge graph generation started in background",
