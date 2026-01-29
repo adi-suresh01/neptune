@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 from sqlalchemy import text
-from app.db.database import engine
+from app.db.database import engine, SessionLocal
+from app.db.models import FileSystem
+from app.services.knowledge_graph import get_generation_status, get_latest_graph_data
 from app.services.llm_service import llm_service
 from app.core.settings import settings
 from app.services.storage import storage_client
@@ -51,5 +53,27 @@ async def system_status():
             "bucket": settings.s3_bucket,
             "prefix": settings.s3_prefix,
             "error": storage_status.error,
+        },
+    }
+
+
+@router.get("/metrics")
+async def metrics():
+    db = SessionLocal()
+    try:
+        file_count = db.query(FileSystem).filter(FileSystem.type == "file").count()
+    finally:
+        db.close()
+
+    graph_data = get_latest_graph_data()
+    status = get_generation_status()
+
+    return {
+        "files": {"count": file_count},
+        "knowledge_graph": {
+            "cached": bool(graph_data.get("nodes")),
+            "node_count": len(graph_data.get("nodes", [])),
+            "link_count": len(graph_data.get("links", [])),
+            "generation_status": status,
         },
     }
