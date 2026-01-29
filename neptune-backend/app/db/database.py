@@ -4,6 +4,9 @@ from sqlalchemy.orm import sessionmaker
 import os
 import sys
 from app.core.settings import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_database_url():
     """
@@ -20,8 +23,8 @@ def get_database_url():
         sqlite_path = os.path.join(db_dir, 'neptune.db')
         sqlite_url = f"sqlite:///{sqlite_path}"
         
-        print(f"📱 Desktop app mode: Using SQLite")
-        print(f"📁 Database location: {sqlite_path}")
+        logger.info("Desktop app mode: Using SQLite")
+        logger.info("Database location: %s", sqlite_path)
         return sqlite_url
     
     else:
@@ -36,17 +39,17 @@ def get_database_url():
                     pool_pre_ping=settings.db_pool_pre_ping,
                 )
                 test_engine.connect().close()
-                print(f"🔧 Development mode: Using PostgreSQL")
-                print(f"🗄️  Database: {pg_url.split('@')[1] if '@' in pg_url else pg_url}")
+                logger.info("Development mode: Using PostgreSQL")
+                logger.info("Database: %s", pg_url.split('@')[1] if '@' in pg_url else pg_url)
                 return pg_url
             except Exception as e:
-                print(f"❌ PostgreSQL connection failed: {e}")
-                print("🔄 Falling back to SQLite for development...")
+                logger.warning("PostgreSQL connection failed: %s", e)
+                logger.info("Falling back to SQLite for development...")
         
         # Fallback to SQLite even in development if PostgreSQL fails
         fallback_path = os.path.join(os.getcwd(), "neptune_dev.db")
         fallback_url = f"sqlite:///{fallback_path}"
-        print(f"📁 Development fallback: Using SQLite at {fallback_path}")
+        logger.info("Development fallback: Using SQLite at %s", fallback_path)
         return fallback_url
 
 # Get the appropriate database URL
@@ -89,6 +92,6 @@ def init_db():
     Create all database tables.
     This should be called when the app starts.
     """
-    print("🏗️  Creating database tables...")
+    logger.info("Creating database tables...")
     Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully")
+    logger.info("Database tables created successfully")
