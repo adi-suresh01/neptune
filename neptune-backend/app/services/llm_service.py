@@ -1,6 +1,7 @@
 import requests
 import json
 from typing import List, Dict, Any
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from app.core.settings import settings
 import logging
@@ -12,6 +13,8 @@ class LLMService:
         self.model_name = model_name or settings.ollama_model
         self.ollama_url = settings.ollama_url
         self._checked_models = False
+        self._failure_count = 0
+        self._cooldown_until: datetime | None = None
         self.session = requests.Session()
         self.logger = logging.getLogger(__name__)
         self.logger.info("LLM service configured with model %s", self.model_name)
@@ -45,6 +48,10 @@ class LLMService:
     def _call_ollama(self, prompt: str, max_tokens: int = 10) -> str:
         """Send a request to Ollama server and get response"""
         self._maybe_check_models()
+        if self._cooldown_until and datetime.utcnow() < self._cooldown_until:
+            self.logger.warning("LLM cooldown active until %s", self._cooldown_until.isoformat())
+            return "unclassified"
+
         try:
             request_data = {
                 "model": self.model_name,
@@ -57,27 +64,36 @@ class LLMService:
                 }
             }
             
-            self.logger.info("Calling Ollama with model %s", self.model_name)
-            response = self.session.post(
-                f"{self.ollama_url}/api/generate",
-                json=request_data,
-                timeout=settings.ollama_timeout_seconds,
-            )
-            
-            if response.status_code == 200:
-                response_data = response.json()
-                result = response_data.get("response", "").strip()
-                self.logger.info("Received Ollama response")
-                return result
-            else:
-                self.logger.warning("Ollama API error: status %s", response.status_code)
-                return "unclassified"
-                
-        except requests.exceptions.Timeout:
-            self.logger.warning("Ollama request timed out")
+            for attempt in range(settings.ollama_max_retries + 1):
+                try:
+                    self.logger.info("Calling Ollama with model %s (attempt %s)", self.model_name, attempt + 1)
+                    response = self.session.post(
+                        f"{self.ollama_url}/api/generate",
+                        json=request_data,
+                        timeout=settings.ollama_timeout_seconds,
+                    )
+
+                    if response.status_code == 200:
+                        response_data = response.json()
+                        result = response_data.get("response", "").strip()
+                        self.logger.info("Received Ollama response")
+                        self._failure_count = 0
+                        return result
+
+                    self.logger.warning("Ollama API error: status %s", response.status_code)
+                except requests.exceptions.Timeout:
+                    self.logger.warning("Ollama request timed out")
+                except Exception as e:
+                    self.logger.error("Error calling Ollama: %s", e)
+
+            self._failure_count += 1
+            if self._failure_count >= settings.ollama_failure_threshold:
+                self._cooldown_until = datetime.utcnow() + timedelta(seconds=settings.ollama_cooldown_seconds)
+                self.logger.warning("LLM cooldown triggered for %s seconds", settings.ollama_cooldown_seconds)
             return "unclassified"
+                
         except Exception as e:
-            self.logger.error("Error calling Ollama: %s", e)
+            self.logger.error("Unexpected LLM error: %s", e)
             return "unclassified"
     
     def extract_topic_from_note(self, note_content: str, note_id: str) -> Dict[str, Any]:
