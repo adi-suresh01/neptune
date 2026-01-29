@@ -8,6 +8,10 @@ class FileSystemItem(BaseModel):
     type: str  # Type can be 'file' or 'folder'
     parent_id: Optional[int] = None  # ID of the parent folder, if applicable
     content: Optional[str] = None  # Only for files, not folders
+    storage_backend: Optional[str] = None
+    storage_key: Optional[str] = None
+    storage_checksum: Optional[str] = None
+    storage_size: Optional[int] = None
     class Config:
         from_attributes = True
 
