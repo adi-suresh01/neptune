@@ -1,15 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
+from app.core.settings import settings
 from app.db.database import init_db
-import os
 import socket
 import sys
 from contextlib import asynccontextmanager
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Modern FastAPI lifespan event handler (replaces deprecated on_event)
 @asynccontextmanager
@@ -33,18 +29,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",  # Tauri dev
-    "tauri://localhost",      # Tauri production
-    "https://tauri.localhost" # Tauri production
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.resolved_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -87,8 +74,8 @@ if __name__ == "__main__":
     import uvicorn
     
     # Get configuration from environment
-    host = os.getenv("HOST", "127.0.0.1")
-    preferred_port = int(os.getenv("PORT", 8000))
+    host = settings.host
+    preferred_port = settings.port
     
     # Check if we're in a bundled app (desktop mode)
     if getattr(sys, 'frozen', False):

@@ -3,10 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 import sys
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+from app.core.settings import settings
 
 def get_database_url():
     """
@@ -29,11 +26,15 @@ def get_database_url():
     
     else:
         # Development mode - use PostgreSQL from .env
-        pg_url = os.getenv("DATABASE_URL")
+        pg_url = settings.database_url
         if pg_url and pg_url.startswith("postgresql://"):
             try:
                 # Test PostgreSQL connection
-                test_engine = create_engine(pg_url)
+                test_engine = create_engine(
+                    pg_url,
+                    connect_args={"connect_timeout": settings.db_connect_timeout_seconds},
+                    pool_pre_ping=settings.db_pool_pre_ping,
+                )
                 test_engine.connect().close()
                 print(f"🔧 Development mode: Using PostgreSQL")
                 print(f"🗄️  Database: {pg_url.split('@')[1] if '@' in pg_url else pg_url}")
@@ -56,7 +57,13 @@ DATABASE_URL = get_database_url()
 if DATABASE_URL.startswith("sqlite:"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"connect_timeout": settings.db_connect_timeout_seconds},
+        pool_pre_ping=settings.db_pool_pre_ping,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+    )
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
