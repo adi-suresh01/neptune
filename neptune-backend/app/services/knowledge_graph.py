@@ -13,7 +13,14 @@ from app.core.settings import settings
 
 # Cache for the latest graph data
 latest_graph_data = None
-generation_status = {"is_generating": False, "progress": "idle"}
+generation_status = {
+    "is_generating": False,
+    "progress": "idle",
+    "started_at": None,
+    "finished_at": None,
+    "last_error": None,
+}
+generation_lock = threading.Lock()
 
 # Caching configuration
 cache_file = settings.kg_cache_path
@@ -85,6 +92,9 @@ def generate_knowledge_graph_background():
     
     generation_status["is_generating"] = True
     generation_status["progress"] = "starting"
+    generation_status["started_at"] = datetime.now().isoformat()
+    generation_status["finished_at"] = None
+    generation_status["last_error"] = None
     
     print("🔄 [BACKGROUND] Generating knowledge graph...")
     
@@ -138,6 +148,7 @@ def generate_knowledge_graph_background():
             # Cache the result
             cache_graph_data(graph_data)
             generation_status["progress"] = "completed"
+            generation_status["finished_at"] = datetime.now().isoformat()
             print(f"✅ [BACKGROUND] Knowledge graph generated with {len(graph_data.get('nodes', []))} nodes")
         else:
             print("❌ [BACKGROUND] No topics extracted from notes")
@@ -147,19 +158,32 @@ def generate_knowledge_graph_background():
     except Exception as e:
         print(f"❌ [BACKGROUND] Error generating knowledge graph: {e}")
         generation_status["progress"] = f"error: {str(e)}"
+        generation_status["last_error"] = str(e)
         empty_graph = {"nodes": [], "links": []}
         cache_graph_data(empty_graph)
     
     finally:
         db.close()
         generation_status["is_generating"] = False
+        if generation_status["finished_at"] is None:
+            generation_status["finished_at"] = datetime.now().isoformat()
         print("✅ [BACKGROUND] Graph generation completed")
 
 def start_background_generation():
     """Start knowledge graph generation in background thread"""
-    thread = threading.Thread(target=generate_knowledge_graph_background, daemon=True)
+    if not generation_lock.acquire(blocking=False):
+        print("⚠️  [BACKGROUND] Generation already running")
+        return False
+    def _run():
+        try:
+            generate_knowledge_graph_background()
+        finally:
+            generation_lock.release()
+
+    thread = threading.Thread(target=_run, daemon=True)
     thread.start()
     print("🚀 [BACKGROUND] Knowledge graph generation started in background")
+    return True
 
 def invalidate_cache():
     """Clear all cached data"""
