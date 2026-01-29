@@ -8,11 +8,11 @@ router = APIRouter()
 
 @router.get("/")
 async def get_knowledge_graph():
-    """Get knowledge graph data - ALWAYS INSTANT (cached only)"""
+    """Get cached knowledge graph data."""
     try:
         from app.services.knowledge_graph import get_latest_graph_data, get_generation_status
         
-        # Always return cached data immediately (NEVER blocks)
+        # Return cached data immediately without blocking.
         graph_data = get_latest_graph_data()
         status = get_generation_status()
         
@@ -44,7 +44,7 @@ async def get_knowledge_graph():
 
 @router.post("/refresh")
 async def refresh_knowledge_graph():
-    """FIXED: Start generation in background - RETURNS IMMEDIATELY"""
+    """Start knowledge graph generation in the background."""
     try:
         from app.services.knowledge_graph import start_background_generation, invalidate_cache, get_generation_status
         
@@ -61,7 +61,7 @@ async def refresh_knowledge_graph():
         logger.info("Starting background knowledge graph generation")
         invalidate_cache()
         
-        # Start background generation (RETURNS IMMEDIATELY)
+        # Start background generation without blocking.
         started = start_background_generation()
         if not started:
             return {
@@ -86,7 +86,7 @@ async def refresh_knowledge_graph():
 
 @router.get("/status")
 async def get_generation_status():
-    """Get knowledge graph generation status - ALWAYS INSTANT"""
+    """Get knowledge graph generation status."""
     try:
         from app.services.knowledge_graph import get_generation_status, get_latest_graph_data
         
@@ -105,7 +105,7 @@ async def get_generation_status():
 
 @router.post("/invalidate")
 async def invalidate_knowledge_graph_cache():
-    """Clear all knowledge graph caches - ALWAYS INSTANT"""
+    """Clear all knowledge graph caches."""
     try:
         from app.services.knowledge_graph import invalidate_cache
         
