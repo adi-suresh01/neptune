@@ -51,6 +51,10 @@ class Settings:
     s3_max_retries: int = int(os.getenv("S3_MAX_RETRIES", "2"))
 
     def resolved_cors_origins(self) -> List[str]:
+        if self.environment == "production" and self.cors_allow_all:
+            if self.cors_origins:
+                return self.cors_origins
+            return []
         if self.cors_allow_all:
             return ["*"]
         if self.cors_origins:
