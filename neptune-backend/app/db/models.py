@@ -16,6 +16,10 @@ class FileSystem(Base):
     type = Column(String(50), nullable=False)  # 'file' or 'folder'
     parent_id = Column(Integer, ForeignKey('filesystem.id'), nullable=True)
     content = Column(Text, nullable=True)  # For file content
+    storage_backend = Column(String(50), nullable=True)
+    storage_key = Column(String(512), nullable=True)
+    storage_checksum = Column(String(128), nullable=True)
+    storage_size = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
