@@ -1,25 +1,32 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
+from app.core.logging import configure_logging, request_id_ctx
 from app.core.settings import settings
 from app.db.database import init_db
+import logging
 import socket
 import sys
 from contextlib import asynccontextmanager
+import uuid
 
 # Modern FastAPI lifespan event handler (replaces deprecated on_event)
+configure_logging()
+logger = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan event handler for startup and shutdown"""
     # Startup
-    print("🚀 Starting Neptune Backend...")
+    logger.info("Starting Neptune Backend...")
     init_db()
-    print("✅ Neptune Backend ready!")
+    logger.info("Neptune Backend ready!")
     
     yield
     
     # Shutdown (if needed)
-    print("👋 Neptune Backend shutting down...")
+    logger.info("Neptune Backend shutting down...")
 
 # Create FastAPI app with lifespan handler
 app = FastAPI(
@@ -36,6 +43,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    token = request_id_ctx.set(request_id)
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        request_id_ctx.reset(token)
 
 # Root endpoint
 @app.get("/")
@@ -79,19 +98,19 @@ if __name__ == "__main__":
     
     # Check if we're in a bundled app (desktop mode)
     if getattr(sys, 'frozen', False):
-        print("📱 Desktop app mode: Finding available port...")
+        logger.info("Desktop app mode: Finding available port...")
         # In desktop mode, find any available port
         port = find_free_port(preferred_port, preferred_port + 100)
         if not port:
-            print("❌ No available ports found!")
+            logger.error("No available ports found!")
             sys.exit(1)
         
         if port != preferred_port:
-            print(f"⚠️  Port {preferred_port} in use, using port {port} instead")
+            logger.warning("Port %s in use, using port %s instead", preferred_port, port)
     else:
         # In development mode, use the configured port
         port = preferred_port
-        print("🔧 Development mode: Using configured port")
+        logger.info("Development mode: Using configured port")
     
-    print(f"🌐 Starting server at http://{host}:{port}")
+    logger.info("Starting server at http://%s:%s", host, port)
     uvicorn.run(app, host=host, port=port)
