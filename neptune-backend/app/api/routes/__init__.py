@@ -3,6 +3,7 @@ from fastapi import APIRouter
 # Import routers from each module
 from .filesystem import router as filesystem_router
 from .knowledge_graph import router as knowledge_graph_router
+from .system import router as system_router
 
 # Create main router
 router = APIRouter()
@@ -10,3 +11,4 @@ router = APIRouter()
 # Include all routers
 router.include_router(filesystem_router, prefix="/filesystem", tags=["filesystem"])
 router.include_router(knowledge_graph_router, prefix="/knowledge-graph", tags=["knowledge-graph"])
+router.include_router(system_router, prefix="/system", tags=["system"])
