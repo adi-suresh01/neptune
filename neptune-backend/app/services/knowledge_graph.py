@@ -9,14 +9,15 @@ from app.services.llm_service import extract_topics_from_notes
 from app.services.visualize_topics import create_topic_graph, graph_to_frontend_format
 from app.db.models import FileSystem
 from app.db.database import SessionLocal
+from app.core.settings import settings
 
 # Cache for the latest graph data
 latest_graph_data = None
 generation_status = {"is_generating": False, "progress": "idle"}
 
 # Caching configuration
-cache_file = "outputs/kg_cache.json"
-cache_duration = timedelta(minutes=10)
+cache_file = settings.kg_cache_path
+cache_duration = timedelta(minutes=settings.kg_cache_ttl_minutes)
 
 def get_cached_graph_data() -> Dict:
     """Get cached graph data from file if valid, otherwise return empty"""
@@ -42,7 +43,7 @@ def cache_graph_data(graph_data: Dict):
     global latest_graph_data
     
     try:
-        os.makedirs("outputs", exist_ok=True)
+        os.makedirs(os.path.dirname(cache_file) or ".", exist_ok=True)
         
         cache_data = {
             "timestamp": datetime.now().isoformat(),
