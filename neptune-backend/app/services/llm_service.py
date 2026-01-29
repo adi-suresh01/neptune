@@ -180,7 +180,10 @@ def set_llm_model(model_name: str):
 def get_available_models() -> list:
     """Get list of available Ollama models"""
     try:
-        response = requests.get(f"{llm_service.ollama_url}/api/tags")
+        response = llm_service.session.get(
+            f"{llm_service.ollama_url}/api/tags",
+            timeout=min(settings.ollama_timeout_seconds, 10),
+        )
         if response.status_code == 200:
             models_data = response.json()
             return [model["name"] for model in models_data.get("models", [])]
