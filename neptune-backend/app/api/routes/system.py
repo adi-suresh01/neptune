@@ -35,7 +35,8 @@ async def system_status():
     storage_status = storage_client.healthcheck()
     return {
         "environment": settings.environment,
-        "mode": settings.storage_mode,
+        "app_mode": settings.app_mode,
+        "storage_mode": settings.storage_mode,
         "host": settings.host,
         "port": settings.port,
         "cors": {
