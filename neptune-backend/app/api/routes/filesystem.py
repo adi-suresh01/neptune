@@ -6,6 +6,11 @@ from app.schemas.file_system import FileSystemItem, FileSystemCreate, FileSystem
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Dict, Any
+from app.core.settings import settings
+from app.services.storage import storage_client
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -96,6 +101,16 @@ async def update_file_content(
     db_item.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_item)
+
+    # Optional object storage mirroring
+    if storage_client.enabled and settings.storage_mode in ("dual", "s3"):
+        object_key = f"{settings.s3_prefix}notes/{item_id}.md"
+        try:
+            storage_client.put_object(object_key, content.encode("utf-8"), "text/markdown")
+        except Exception as e:
+            logger.warning("Failed to store note %s in object storage: %s", item_id, e)
+            if settings.storage_mode == "s3":
+                raise HTTPException(status_code=503, detail="Object storage unavailable")
     
     return FileSystemItem(
         id=db_item.id,
@@ -111,12 +126,19 @@ async def get_file_by_id(item_id: int, db: Session = Depends(get_db)):
     item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    content = item.content
+    if storage_client.enabled and settings.storage_mode == "s3":
+        object_key = f"{settings.s3_prefix}notes/{item_id}.md"
+        try:
+            content = storage_client.get_object(object_key).decode("utf-8")
+        except Exception as e:
+            logger.warning("Failed to read note %s from object storage: %s", item_id, e)
     return FileSystemItem(
         id=item.id,
         name=item.name,
         type=item.type,
         parent_id=item.parent_id,
-        content=item.content
+        content=content
     )
 
 @router.delete("/{item_id}", response_model=Dict[str, Any])
