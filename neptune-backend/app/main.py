@@ -96,8 +96,8 @@ if __name__ == "__main__":
     preferred_port = settings.port
     
     # Check if we're in a bundled app (desktop mode)
-    if getattr(sys, 'frozen', False):
-        logger.info("Desktop app mode: Finding available port...")
+    if settings.app_mode == "desktop" or getattr(sys, 'frozen', False):
+        logger.info("Desktop mode: Finding available port...")
         # In desktop mode, find any available port
         port = find_free_port(preferred_port, preferred_port + 100)
         if not port:

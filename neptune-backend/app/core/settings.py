@@ -15,6 +15,7 @@ def _split_csv(value: str) -> List[str]:
 @dataclass(frozen=True)
 class Settings:
     environment: str = os.getenv("NEPTUNE_ENV", "development")
+    app_mode: str = os.getenv("NEPTUNE_MODE", "server").lower()
     host: str = os.getenv("HOST", "127.0.0.1")
     port: int = int(os.getenv("PORT", "8000"))
 
