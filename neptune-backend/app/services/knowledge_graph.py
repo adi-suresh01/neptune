@@ -37,7 +37,7 @@ def get_cached_graph_data() -> Dict:
             
             cache_time = datetime.fromisoformat(cached_data['timestamp'])
             if datetime.now() - cache_time < cache_duration:
-                print("✅ Using cached knowledge graph from file")
+                print("Using cached knowledge graph from file")
                 return cached_data['graph']
         
         logger.info("Cache expired or missing")
@@ -73,7 +73,7 @@ def get_latest_graph_data() -> Dict:
     global latest_graph_data
     
     if latest_graph_data is not None:
-        print("✅ Using in-memory cached knowledge graph")
+        print("Using in-memory cached knowledge graph")
         return latest_graph_data
     
     file_cached = get_cached_graph_data()
