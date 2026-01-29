@@ -42,6 +42,7 @@ class Settings:
     s3_region: str | None = os.getenv("S3_REGION")
     s3_secure: bool = os.getenv("S3_SECURE", "true").lower() == "true"
     s3_prefix: str = os.getenv("S3_PREFIX", "neptune/")
+    storage_mode: str = os.getenv("STORAGE_MODE", "db").lower()
 
     def resolved_cors_origins(self) -> List[str]:
         if self.cors_allow_all:
