@@ -19,8 +19,8 @@ class ContentUpdate(BaseModel):
 
 @router.get("/", response_model=list[FileSystemItem])
 async def get_file_system(parent_id: int = None, db: Session = Depends(get_db)):
-    """Get all files (NO FOLDERS) - simplified for note-only structure"""
-    # SIMPLIFIED: Only get files, ignore parent_id since we don't use folders
+    """Get all files for a note-only structure."""
+    # Only fetch files; folders are currently not supported.
     query = db.query(FileSystem).filter(FileSystem.type == "file")
     
     items = query.all()
@@ -56,8 +56,8 @@ async def get_file_system(parent_id: int = None, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=FileSystemItem)
 async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(get_db)):
-    """Create a new file ONLY - NO FOLDER SUPPORT"""
-    # ENFORCE: Only allow file creation
+    """Create a new file."""
+    # Enforce file-only creation.
     if item.type != "file":
         raise HTTPException(status_code=400, detail="Only file creation is supported. Folders are not allowed.")
     
@@ -85,7 +85,7 @@ async def update_file_content(
     data: dict, 
     db: Session = Depends(get_db)
 ):
-    """Update file content - INSTANT SAVE, NO OLLAMA"""
+    """Update file content."""
     content = data.get("content")
     if content is None:
         raise HTTPException(status_code=400, detail="Content field is required")
@@ -96,7 +96,7 @@ async def update_file_content(
     if db_item.type != "file":
         raise HTTPException(status_code=400, detail="Cannot set content for non-files")
     
-    # INSTANT SAVE
+    # Persist content immediately.
     db_item.content = content
     db_item.updated_at = datetime.utcnow()
     db.commit()
@@ -146,13 +146,13 @@ async def delete_file_system_item(
     item_id: int,
     db: Session = Depends(get_db)
 ):
-    """Delete a file - INSTANT, NO OLLAMA"""
+    """Delete a file."""
     # Find the item in the database
     db_item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Item not found")
     
-    # SIMPLIFIED: Only allow file deletion since we don't have folders
+    # Only allow file deletion since folders are not supported.
     if db_item.type != "file":
         raise HTTPException(status_code=400, detail="Only files can be deleted")
     
