@@ -31,6 +31,14 @@ class FileSystemResponse(BaseModel):
 class FileSystemListResponse(BaseModel):
     items: List[FileSystemItem]
 
+class FileContentResponse(BaseModel):
+    id: int
+    content: Optional[str] = None
+    storage_backend: Optional[str] = None
+    storage_key: Optional[str] = None
+    storage_checksum: Optional[str] = None
+    storage_size: Optional[int] = None
+
 # Add the missing folder-specific schemas
 class FolderCreate(BaseModel):
     name: str
