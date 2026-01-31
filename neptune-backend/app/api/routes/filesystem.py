@@ -4,6 +4,7 @@ from app.db.database import get_db
 from app.db.models import FileSystem
 from app.schemas.file_system import (
     FileSystemItem,
+    FileSystemMeta,
     FileSystemCreate,
     FileContentResponse,
     DeleteResponse,
@@ -20,7 +21,7 @@ router = APIRouter()
 class ContentUpdate(BaseModel):
     content: str
 
-@router.get("/", response_model=list[FileSystemItem])
+@router.get("/", response_model=list[FileSystemMeta])
 async def get_file_system(
     parent_id: int = None,
     owner_id: str = None,
@@ -49,13 +50,12 @@ async def get_file_system(
         db.add(default_note)
         db.commit()
         db.refresh(default_note)
-        return [FileSystemItem(
+        return [FileSystemMeta(
             id=default_note.id,
             owner_id=default_note.owner_id,
             name=default_note.name,
             type=default_note.type,
             parent_id=default_note.parent_id,
-            content=default_note.content,
             storage_backend=default_note.storage_backend,
             storage_key=default_note.storage_key,
             storage_checksum=default_note.storage_checksum,
@@ -65,13 +65,12 @@ async def get_file_system(
     response_items = []
     for item in items:
         response_items.append(
-            FileSystemItem(
+            FileSystemMeta(
                 id=item.id,
                 owner_id=item.owner_id,
                 name=item.name,
                 type=item.type,
                 parent_id=item.parent_id,
-                content=item.content if include_content else None,
                 storage_backend=item.storage_backend,
                 storage_key=item.storage_key,
                 storage_checksum=item.storage_checksum,

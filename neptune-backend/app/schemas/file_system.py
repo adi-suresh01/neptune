@@ -16,6 +16,19 @@ class FileSystemItem(BaseModel):
     class Config:
         from_attributes = True
 
+class FileSystemMeta(BaseModel):
+    id: int
+    owner_id: Optional[str] = None
+    name: str
+    type: str
+    parent_id: Optional[int] = None
+    storage_backend: Optional[str] = None
+    storage_key: Optional[str] = None
+    storage_checksum: Optional[str] = None
+    storage_size: Optional[int] = None
+    class Config:
+        from_attributes = True
+
 class FileSystemCreate(BaseModel):
     name: str
     type: str  # Type can be 'file' or 'folder'
