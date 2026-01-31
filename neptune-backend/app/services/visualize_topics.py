@@ -2,19 +2,15 @@ from typing import List, Dict, Any, Tuple
 import networkx as nx
 import itertools
 import logging
+from app.services.similarity import default_similarity, SimilarityStrategy
 
 logger = logging.getLogger(__name__)
 
 
-def _jaccard_similarity(a: set[str], b: set[str]) -> float:
-    if not a and not b:
-        return 0.0
-    intersection = a.intersection(b)
-    union = a.union(b)
-    return len(intersection) / max(len(union), 1)
-
-
-def find_topic_relationships(topic_note_map: Dict[str, set[str]]) -> List[Tuple[str, str, float]]:
+def find_topic_relationships(
+    topic_note_map: Dict[str, set[str]],
+    strategy: SimilarityStrategy | None = None,
+) -> List[Tuple[str, str, float]]:
     """
     Find relationships between topics using note co-occurrence.
     """
@@ -25,9 +21,10 @@ def find_topic_relationships(topic_note_map: Dict[str, set[str]]) -> List[Tuple[
 
     logger.info("Finding relationships for %s topic pairs", len(topic_pairs))
 
+    similarity = strategy or default_similarity()
     edges = []
     for topic1, topic2 in topic_pairs:
-        strength = _jaccard_similarity(topic_note_map[topic1], topic_note_map[topic2])
+        strength = similarity.score(topic1, topic2, topic_note_map)
         edges.append((topic1, topic2, strength))
 
     logger.info("Found %s relationships between topics", len(edges))
