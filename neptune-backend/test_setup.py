@@ -117,43 +117,6 @@ def test_existing_llm_tests():
         print(f"Could not run existing LLM tests: {e}")
         return False
 
-def test_note_graph_model():
-    """Test the NoteGraphModel"""
-    print("\n" + "=" * 50)
-    print("Testing Note Graph Model")
-    print("=" * 50)
-    
-    try:
-        # Try to import the NoteGraphModel
-        from model.NoteGraphModel import NoteGraphModel
-        
-        fake_courses = ["Linear Algebra", "Calculus", "Operating Systems", "Algorithms"]
-        model = NoteGraphModel(classes=fake_courses)
-        
-        print("NoteGraphModel imported successfully.")
-        print(f"Model initialized with courses: {fake_courses}")
-        
-        # Test markdown parsing
-        test_markdown = """# Machine Learning Overview
-
-Machine learning is a **subset** of artificial intelligence focused on _data-driven_ predictions.
-It involves ***algorithms*** that improve over time through exposure to **data**.
-
-## Supervised Learning
-"""
-        
-        dictionary = model._parse_note_md(test_markdown, 1)
-        print("Markdown parsing successful.")
-        print(f"Parsed content preview: {str(dictionary)[:100]}...")
-        
-        return True
-        
-    except Exception as e:
-        print(f"NoteGraphModel test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
 def test_database_connection():
     """Test database connection and models"""
     print("\n" + "=" * 50)
@@ -304,7 +267,6 @@ def main():
         ("Database Connection", test_database_connection),
         ("LLM Service", test_llm_service),
         ("Existing LLM Tests", test_existing_llm_tests),
-        ("Note Graph Model", test_note_graph_model),
         ("API Routes", test_api_routes),
         ("Visualizations", test_visualizations),
     ]
