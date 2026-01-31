@@ -6,7 +6,6 @@ from app.services.knowledge_graph import get_generation_status, get_latest_graph
 from app.core.settings import settings
 import os
 from app.services.llm_service import llm_service
-from app.core.settings import settings
 from app.services.storage import storage_client
 
 router = APIRouter()
