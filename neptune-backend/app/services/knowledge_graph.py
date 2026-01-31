@@ -25,7 +25,16 @@ generation_status = {
 generation_lock = threading.Lock()
 
 # Caching configuration
-cache_file = settings.kg_cache_path
+def _resolve_cache_path() -> str:
+    if "{version}" in settings.kg_cache_path:
+        return settings.kg_cache_path.format(version=settings.kg_cache_version)
+    base, ext = os.path.splitext(settings.kg_cache_path)
+    if ext:
+        return f"{base}.{settings.kg_cache_version}{ext}"
+    return f"{settings.kg_cache_path}.{settings.kg_cache_version}"
+
+
+cache_file = _resolve_cache_path()
 cache_duration = timedelta(minutes=settings.kg_cache_ttl_minutes)
 
 def get_cached_graph_data() -> Dict:
