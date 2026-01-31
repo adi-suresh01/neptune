@@ -52,6 +52,8 @@ class Settings:
     s3_read_timeout_seconds: int = int(os.getenv("S3_READ_TIMEOUT_SECONDS", "5"))
     s3_max_retries: int = int(os.getenv("S3_MAX_RETRIES", "2"))
 
+    vector_backend: str = os.getenv("VECTOR_BACKEND", "none").lower()
+
     def resolved_cors_origins(self) -> List[str]:
         if self.environment == "production" and self.cors_allow_all:
             if self.cors_origins:
