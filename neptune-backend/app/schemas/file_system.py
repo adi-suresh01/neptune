@@ -50,3 +50,7 @@ class FolderResponse(BaseModel):
     id: int
     name: str
     parent_id: Optional[int] = None
+
+class DeleteResponse(BaseModel):
+    success: bool
+    message: str

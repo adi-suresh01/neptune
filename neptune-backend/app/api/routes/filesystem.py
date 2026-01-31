@@ -8,6 +8,7 @@ from app.schemas.file_system import (
     FileSystemUpdate,
     FileSystemListResponse,
     FileContentResponse,
+    DeleteResponse,
 )
 from pydantic import BaseModel
 from datetime import datetime
@@ -82,7 +83,7 @@ async def get_file_system(
         )
     return response_items
 
-@router.post("/", response_model=FileSystemItem)
+@router.post("/", response_model=FileSystemItem, status_code=201)
 async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(get_db)):
     """Create a new file."""
     # Enforce file-only creation.
@@ -116,13 +117,11 @@ async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(
 @router.put("/{item_id}/content", response_model=FileSystemItem)
 async def update_file_content(
     item_id: int, 
-    data: dict, 
+    data: ContentUpdate,
     db: Session = Depends(get_db)
 ):
     """Update file content."""
-    content = data.get("content")
-    if content is None:
-        raise HTTPException(status_code=400, detail="Content field is required")
+    content = data.content
         
     db_item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
     if not db_item:
@@ -201,7 +200,7 @@ async def get_file_content(item_id: int, db: Session = Depends(get_db)):
         storage_size=result.storage_size,
     )
 
-@router.delete("/{item_id}", response_model=Dict[str, Any])
+@router.delete("/{item_id}", response_model=DeleteResponse)
 async def delete_file_system_item(
     item_id: int,
     db: Session = Depends(get_db)
