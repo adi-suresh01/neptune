@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Dict, Any
 from app.core.settings import settings
 from app.services.storage import storage_client
+from app.services.note_content import store_note_content, load_note_content
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,11 @@ async def get_file_system(parent_id: int = None, db: Session = Depends(get_db)):
             name=item.name,
             type=item.type,
             parent_id=item.parent_id,
-            content=item.content
+            content=item.content,
+            storage_backend=item.storage_backend,
+            storage_key=item.storage_key,
+            storage_checksum=item.storage_checksum,
+            storage_size=item.storage_size,
         ) for item in items
     ]
 
@@ -76,7 +81,11 @@ async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(
         name=db_item.name,
         type=db_item.type,
         parent_id=db_item.parent_id,
-        content=db_item.content
+        content=db_item.content,
+        storage_backend=db_item.storage_backend,
+        storage_key=db_item.storage_key,
+        storage_checksum=db_item.storage_checksum,
+        storage_size=db_item.storage_size,
     )
 
 @router.put("/{item_id}/content", response_model=FileSystemItem)
@@ -96,28 +105,27 @@ async def update_file_content(
     if db_item.type != "file":
         raise HTTPException(status_code=400, detail="Cannot set content for non-files")
     
-    # Persist content immediately.
-    db_item.content = content
+    # Persist content via storage service.
+    try:
+        store_note_content(db_item, content)
+    except Exception as e:
+        logger.warning("Failed to store note %s content: %s", item_id, e)
+        raise HTTPException(status_code=503, detail="Storage unavailable")
+
     db_item.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_item)
-
-    # Optional object storage mirroring
-    if storage_client.enabled and settings.storage_mode in ("dual", "s3"):
-        object_key = f"{settings.s3_prefix}notes/{item_id}.md"
-        try:
-            storage_client.put_object(object_key, content.encode("utf-8"), "text/markdown")
-        except Exception as e:
-            logger.warning("Failed to store note %s in object storage: %s", item_id, e)
-            if settings.storage_mode == "s3":
-                raise HTTPException(status_code=503, detail="Object storage unavailable")
     
     return FileSystemItem(
         id=db_item.id,
         name=db_item.name,
         type=db_item.type,
         parent_id=db_item.parent_id,
-        content=db_item.content
+        content=db_item.content,
+        storage_backend=db_item.storage_backend,
+        storage_key=db_item.storage_key,
+        storage_checksum=db_item.storage_checksum,
+        storage_size=db_item.storage_size,
     )
 
 @router.get("/{item_id}", response_model=FileSystemItem)
@@ -126,19 +134,21 @@ async def get_file_by_id(item_id: int, db: Session = Depends(get_db)):
     item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    content = item.content
-    if storage_client.enabled and settings.storage_mode == "s3":
-        object_key = f"{settings.s3_prefix}notes/{item_id}.md"
-        try:
-            content = storage_client.get_object(object_key).decode("utf-8")
-        except Exception as e:
-            logger.warning("Failed to read note %s from object storage: %s", item_id, e)
+    try:
+        result = load_note_content(item)
+    except Exception as e:
+        logger.warning("Failed to read note %s content: %s", item_id, e)
+        raise HTTPException(status_code=503, detail="Storage unavailable")
     return FileSystemItem(
         id=item.id,
         name=item.name,
         type=item.type,
         parent_id=item.parent_id,
-        content=content
+        content=result.content,
+        storage_backend=result.storage_backend,
+        storage_key=result.storage_key,
+        storage_checksum=result.storage_checksum,
+        storage_size=result.storage_size,
     )
 
 @router.delete("/{item_id}", response_model=Dict[str, Any])
