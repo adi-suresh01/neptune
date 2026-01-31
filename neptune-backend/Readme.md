@@ -57,6 +57,34 @@
     http://localhost:8000/docs
     ```
 
+## Storage and Filesystem Design
+
+- The filesystem API is metadata-first for scale.
+- List endpoint returns metadata only; content is fetched separately.
+- Content storage is configurable:
+  - `STORAGE_MODE=db` stores content in the database.
+  - `STORAGE_MODE=dual` stores content in both DB and object storage.
+  - `STORAGE_MODE=s3` stores content only in object storage.
+
+Key endpoints:
+- `GET /api/filesystem` returns metadata with pagination.
+- `GET /api/filesystem/{id}` returns full item and content.
+- `GET /api/filesystem/{id}/content` returns content only.
+- `PUT /api/filesystem/{id}/content` updates content.
+
+Related environment variables:
+- `STORAGE_MODE`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`
+- `MAX_NOTE_BYTES` to limit note size.
+
+## Knowledge Graph Design
+
+- Topic extraction uses the LLM once per note.
+- Relationship scoring is deterministic (note co-occurrence).
+- Graph size and strength thresholds are configurable:
+  - `KG_MIN_STRENGTH`
+  - `KG_MAX_EDGES`
+  - `KG_CACHE_VERSION`
+
 ## Ubuntu Server Deployment (Tailscale + systemd)
 
 1. Install system dependencies:
