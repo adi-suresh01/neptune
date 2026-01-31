@@ -26,6 +26,8 @@ def _checksum(data: bytes) -> str:
 
 def store_note_content(item: FileSystem, content: str) -> ContentResult:
     data = content.encode("utf-8")
+    if len(data) > settings.max_note_bytes:
+        raise ValueError("Note content exceeds size limit")
     checksum = _checksum(data)
     size = len(data)
 

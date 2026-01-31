@@ -38,6 +38,7 @@ class Settings:
 
     kg_cache_path: str = os.getenv("KG_CACHE_PATH", "outputs/kg_cache.json")
     kg_cache_ttl_minutes: int = int(os.getenv("KG_CACHE_TTL_MINUTES", "10"))
+    max_note_bytes: int = int(os.getenv("MAX_NOTE_BYTES", "1048576"))
 
     s3_endpoint: str | None = os.getenv("S3_ENDPOINT")
     s3_access_key: str | None = os.getenv("S3_ACCESS_KEY")
