@@ -5,14 +5,11 @@ from app.db.models import FileSystem
 from app.schemas.file_system import (
     FileSystemItem,
     FileSystemCreate,
-    FileSystemUpdate,
-    FileSystemListResponse,
     FileContentResponse,
     DeleteResponse,
 )
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Dict, Any
 from app.services.note_content import store_note_content, load_note_content
 import logging
 
