@@ -21,6 +21,8 @@ generation_status = {
     "started_at": None,
     "finished_at": None,
     "last_error": None,
+    "last_heartbeat": None,
+    "last_success_at": None,
 }
 generation_lock = threading.Lock()
 
@@ -106,6 +108,7 @@ def generate_knowledge_graph_background():
     generation_status["started_at"] = datetime.now().isoformat()
     generation_status["finished_at"] = None
     generation_status["last_error"] = None
+    generation_status["last_heartbeat"] = datetime.now().isoformat()
     
     logger.info("Generating knowledge graph in background")
     
@@ -114,6 +117,7 @@ def generate_knowledge_graph_background():
     
     try:
         generation_status["progress"] = "fetching_notes"
+        generation_status["last_heartbeat"] = datetime.now().isoformat()
         
         # Get ALL notes from database
         notes = db.query(FileSystem).filter(
@@ -144,6 +148,7 @@ def generate_knowledge_graph_background():
             return
         
         generation_status["progress"] = f"processing_{len(formatted_notes)}_notes"
+        generation_status["last_heartbeat"] = datetime.now().isoformat()
         logger.info("Processing %s notes with Ollama", len(formatted_notes))
         
         # Process with Ollama (topic extraction).
@@ -151,6 +156,7 @@ def generate_knowledge_graph_background():
         
         if topics_data:
             generation_status["progress"] = "building_graph"
+            generation_status["last_heartbeat"] = datetime.now().isoformat()
             
             # Create knowledge graph - SLOW OLLAMA CALLS HAPPEN HERE
             graph = create_topic_graph(topics_data)
@@ -160,6 +166,7 @@ def generate_knowledge_graph_background():
             cache_graph_data(graph_data)
             generation_status["progress"] = "completed"
             generation_status["finished_at"] = datetime.now().isoformat()
+            generation_status["last_success_at"] = generation_status["finished_at"]
             logger.info("Knowledge graph generated with %s nodes", len(graph_data.get("nodes", [])))
         else:
             logger.info("No topics extracted from notes")
