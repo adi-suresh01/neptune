@@ -25,12 +25,11 @@ class ContentUpdate(BaseModel):
 async def get_file_system(
     parent_id: int = None,
     owner_id: str = None,
-    include_content: bool = False,
     limit: int = 100,
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
-    """Get files with optional content and pagination."""
+    """Get file metadata with pagination."""
     # Only fetch files; folders are currently not supported.
     query = db.query(FileSystem).filter(FileSystem.type == "file")
     if owner_id:
