@@ -47,6 +47,9 @@ class Topic(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False, unique=True)
+    embedding_model = Column(String(255), nullable=True)
+    embedding_checksum = Column(String(128), nullable=True)
+    embedding_dim = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class NoteTopic(Base):
