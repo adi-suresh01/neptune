@@ -11,6 +11,7 @@ class FileSystem(Base):
     __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(String(128), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     path = Column(String(500), nullable=True)  # Changed to nullable=True
     type = Column(String(50), nullable=False)  # 'file' or 'folder'
