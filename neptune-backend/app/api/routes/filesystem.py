@@ -6,8 +6,6 @@ from app.schemas.file_system import FileSystemItem, FileSystemCreate, FileSystem
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Dict, Any
-from app.core.settings import settings
-from app.services.storage import storage_client
 from app.services.note_content import store_note_content, load_note_content
 import logging
 
