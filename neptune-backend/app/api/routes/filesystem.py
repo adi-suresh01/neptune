@@ -133,6 +133,8 @@ async def update_file_content(
     # Persist content via storage service.
     try:
         store_note_content(db_item, content)
+    except ValueError as e:
+        raise HTTPException(status_code=413, detail=str(e))
     except Exception as e:
         logger.warning("Failed to store note %s content: %s", item_id, e)
         raise HTTPException(status_code=503, detail="Storage unavailable")
