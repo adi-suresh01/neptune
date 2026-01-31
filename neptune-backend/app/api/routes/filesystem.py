@@ -25,6 +25,7 @@ class ContentUpdate(BaseModel):
 @router.get("/", response_model=list[FileSystemItem])
 async def get_file_system(
     parent_id: int = None,
+    owner_id: str = None,
     include_content: bool = False,
     limit: int = 100,
     offset: int = 0,
@@ -33,6 +34,8 @@ async def get_file_system(
     """Get files with optional content and pagination."""
     # Only fetch files; folders are currently not supported.
     query = db.query(FileSystem).filter(FileSystem.type == "file")
+    if owner_id:
+        query = query.filter(FileSystem.owner_id == owner_id)
     query = query.order_by(FileSystem.updated_at.desc()).offset(offset).limit(limit)
     
     items = query.all()
@@ -50,6 +53,7 @@ async def get_file_system(
         db.refresh(default_note)
         return [FileSystemItem(
             id=default_note.id,
+            owner_id=default_note.owner_id,
             name=default_note.name,
             type=default_note.type,
             parent_id=default_note.parent_id,
@@ -65,6 +69,7 @@ async def get_file_system(
         response_items.append(
             FileSystemItem(
                 id=item.id,
+                owner_id=item.owner_id,
                 name=item.name,
                 type=item.type,
                 parent_id=item.parent_id,
@@ -88,7 +93,8 @@ async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(
         name=item.name,
         type="file",  # Force file type
         parent_id=None,  # All files are root level
-        content=""  # Start with empty content
+        content="",  # Start with empty content
+        owner_id=item.owner_id,
     )
     db.add(db_item)
     db.commit()
@@ -96,6 +102,7 @@ async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(
     
     return FileSystemItem(
         id=db_item.id,
+        owner_id=db_item.owner_id,
         name=db_item.name,
         type=db_item.type,
         parent_id=db_item.parent_id,
@@ -136,6 +143,7 @@ async def update_file_content(
     
     return FileSystemItem(
         id=db_item.id,
+        owner_id=db_item.owner_id,
         name=db_item.name,
         type=db_item.type,
         parent_id=db_item.parent_id,
@@ -159,6 +167,7 @@ async def get_file_by_id(item_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=503, detail="Storage unavailable")
     return FileSystemItem(
         id=item.id,
+        owner_id=item.owner_id,
         name=item.name,
         type=item.type,
         parent_id=item.parent_id,
