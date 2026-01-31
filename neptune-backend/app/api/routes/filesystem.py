@@ -2,7 +2,13 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import FileSystem
-from app.schemas.file_system import FileSystemItem, FileSystemCreate, FileSystemUpdate, FileSystemListResponse
+from app.schemas.file_system import (
+    FileSystemItem,
+    FileSystemCreate,
+    FileSystemUpdate,
+    FileSystemListResponse,
+    FileContentResponse,
+)
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Dict, Any
@@ -156,6 +162,27 @@ async def get_file_by_id(item_id: int, db: Session = Depends(get_db)):
         name=item.name,
         type=item.type,
         parent_id=item.parent_id,
+        content=result.content,
+        storage_backend=result.storage_backend,
+        storage_key=result.storage_key,
+        storage_checksum=result.storage_checksum,
+        storage_size=result.storage_size,
+    )
+
+
+@router.get("/{item_id}/content", response_model=FileContentResponse)
+async def get_file_content(item_id: int, db: Session = Depends(get_db)):
+    """Get file content only."""
+    item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    try:
+        result = load_note_content(item)
+    except Exception as e:
+        logger.warning("Failed to read note %s content: %s", item_id, e)
+        raise HTTPException(status_code=503, detail="Storage unavailable")
+    return FileContentResponse(
+        id=item.id,
         content=result.content,
         storage_backend=result.storage_backend,
         storage_key=result.storage_key,
