@@ -3,6 +3,7 @@ import networkx as nx
 import itertools
 import logging
 from app.services.similarity import default_similarity, SimilarityStrategy
+from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +55,14 @@ def create_topic_graph(topics_data: List[Dict[str, Any]]) -> nx.Graph:
     
     # Find and add relationships between topics
     topic_relationships = find_topic_relationships(topic_note_map)
-    for topic1, topic2, strength in topic_relationships:
-        if strength > 0.2:  # Only add meaningful relationships
-            G.add_edge(topic1, topic2, weight=strength)
+    filtered = [
+        (t1, t2, s) for t1, t2, s in topic_relationships if s >= settings.kg_min_strength
+    ]
+    filtered.sort(key=lambda item: item[2], reverse=True)
+    if settings.kg_max_edges > 0:
+        filtered = filtered[: settings.kg_max_edges]
+    for topic1, topic2, strength in filtered:
+        G.add_edge(topic1, topic2, weight=strength)
     
     return G
 
