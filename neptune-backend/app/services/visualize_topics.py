@@ -1,67 +1,37 @@
 from typing import List, Dict, Any, Tuple
 import networkx as nx
 import itertools
-from dotenv import load_dotenv
 import logging
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
-def find_topic_relationships(topics: List[str]) -> List[Tuple[str, str, float]]:
+
+def _jaccard_similarity(a: set[str], b: set[str]) -> float:
+    if not a and not b:
+        return 0.0
+    intersection = a.intersection(b)
+    union = a.union(b)
+    return len(intersection) / max(len(union), 1)
+
+
+def find_topic_relationships(topic_note_map: Dict[str, set[str]]) -> List[Tuple[str, str, float]]:
     """
-    Find relationships between topics using Ollama LLM.
-    
-    Args:
-        topics: List of topic strings
-        
-    Returns:
-        List of tuples (topic1, topic2, strength) representing edges
+    Find relationships between topics using note co-occurrence.
     """
-    if len(topics) < 2:
+    if len(topic_note_map) < 2:
         return []
-    
-    # Generate all possible pairs of topics
-    topic_pairs = list(itertools.combinations(topics, 2))
-    
+
+    topic_pairs = list(itertools.combinations(topic_note_map.keys(), 2))
+
     logger.info("Finding relationships for %s topic pairs", len(topic_pairs))
-    
+
     edges = []
     for topic1, topic2 in topic_pairs:
-        strength = get_relationship_strength(topic1, topic2)
+        strength = _jaccard_similarity(topic_note_map[topic1], topic_note_map[topic2])
         edges.append((topic1, topic2, strength))
-    
+
     logger.info("Found %s relationships between topics", len(edges))
     return edges
-
-def get_relationship_strength(topic1: str, topic2: str) -> float:
-    """Get relationship strength between two topics using Ollama"""
-    from app.services.llm_service import llm_service
-    
-    prompt = f"""
-    Rate the relationship strength between these two topics on a scale from 0.1 to 1.0:
-    Topic 1: {topic1}
-    Topic 2: {topic2}
-    
-    Consider ANY type of relationship: subjects taught together, historical connections, 
-    conceptual overlap, shared methods, complementary ideas, or topics that might appear 
-    in the same text or course.
-    
-    Be generous with connections - find ANY logical connection, no matter how slight.
-    - 0.1 means very weakly related but still connected
-    - 1.0 means strongly related
-    
-    Respond with ONLY a number between 0.1 and 1.0, nothing else.
-    """
-    
-    try:
-        response = llm_service._call_ollama(prompt, max_tokens=10)
-        strength = float(response.strip())
-        strength = max(0.1, min(1.0, strength))
-        logger.debug("Relationship %s-%s: %s", topic1, topic2, strength)
-        return strength
-    except Exception as e:
-        logger.warning("Error getting relationship for %s-%s: %s", topic1, topic2, e)
-        return 0.3  # Default relationship
 
 def create_topic_graph(topics_data: List[Dict[str, Any]]) -> nx.Graph:
     """
@@ -69,8 +39,9 @@ def create_topic_graph(topics_data: List[Dict[str, Any]]) -> nx.Graph:
     """
     G = nx.Graph()
     
-    # Extract all topic names
-    topic_names = [item["topic"] for item in topics_data]
+    topic_note_map: Dict[str, set[str]] = {}
+    for item in topics_data:
+        topic_note_map[item["topic"]] = set(item["note_ids"])
     
     # Add topic nodes with size based on number of notes
     for item in topics_data:
@@ -85,7 +56,7 @@ def create_topic_graph(topics_data: List[Dict[str, Any]]) -> nx.Graph:
         )
     
     # Find and add relationships between topics
-    topic_relationships = find_topic_relationships(topic_names)
+    topic_relationships = find_topic_relationships(topic_note_map)
     for topic1, topic2, strength in topic_relationships:
         if strength > 0.2:  # Only add meaningful relationships
             G.add_edge(topic1, topic2, weight=strength)
