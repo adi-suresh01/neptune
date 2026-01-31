@@ -42,7 +42,11 @@ async def get_file_system(parent_id: int = None, db: Session = Depends(get_db)):
             name=default_note.name,
             type=default_note.type,
             parent_id=default_note.parent_id,
-            content=default_note.content
+            content=default_note.content,
+            storage_backend=default_note.storage_backend,
+            storage_key=default_note.storage_key,
+            storage_checksum=default_note.storage_checksum,
+            storage_size=default_note.storage_size,
         )]
     
     return [
