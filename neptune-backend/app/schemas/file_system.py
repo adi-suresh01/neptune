@@ -4,6 +4,7 @@ from datetime import datetime
 
 class FileSystemItem(BaseModel):
     id: int
+    owner_id: Optional[str] = None
     name: str
     type: str  # Type can be 'file' or 'folder'
     parent_id: Optional[int] = None  # ID of the parent folder, if applicable
@@ -19,6 +20,7 @@ class FileSystemCreate(BaseModel):
     name: str
     type: str  # Type can be 'file' or 'folder'
     parent_id: Optional[int] = None  # ID of the parent folder, if applicable
+    owner_id: Optional[str] = None
 
 class FileSystemUpdate(BaseModel):
     name: Optional[str] = None
