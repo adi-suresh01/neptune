@@ -17,10 +17,17 @@ class ContentUpdate(BaseModel):
     content: str
 
 @router.get("/", response_model=list[FileSystemItem])
-async def get_file_system(parent_id: int = None, db: Session = Depends(get_db)):
-    """Get all files for a note-only structure."""
+async def get_file_system(
+    parent_id: int = None,
+    include_content: bool = False,
+    limit: int = 100,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+):
+    """Get files with optional content and pagination."""
     # Only fetch files; folders are currently not supported.
     query = db.query(FileSystem).filter(FileSystem.type == "file")
+    query = query.order_by(FileSystem.updated_at.desc()).offset(offset).limit(limit)
     
     items = query.all()
     
@@ -47,19 +54,22 @@ async def get_file_system(parent_id: int = None, db: Session = Depends(get_db)):
             storage_size=default_note.storage_size,
         )]
     
-    return [
-        FileSystemItem(
-            id=item.id,
-            name=item.name,
-            type=item.type,
-            parent_id=item.parent_id,
-            content=item.content,
-            storage_backend=item.storage_backend,
-            storage_key=item.storage_key,
-            storage_checksum=item.storage_checksum,
-            storage_size=item.storage_size,
-        ) for item in items
-    ]
+    response_items = []
+    for item in items:
+        response_items.append(
+            FileSystemItem(
+                id=item.id,
+                name=item.name,
+                type=item.type,
+                parent_id=item.parent_id,
+                content=item.content if include_content else None,
+                storage_backend=item.storage_backend,
+                storage_key=item.storage_key,
+                storage_checksum=item.storage_checksum,
+                storage_size=item.storage_size,
+            )
+        )
+    return response_items
 
 @router.post("/", response_model=FileSystemItem)
 async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(get_db)):
