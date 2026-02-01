@@ -33,4 +33,12 @@ This log tracks backend changes aimed at production hosting (Ubuntu server), rem
 - Removed legacy model artifacts and cleaned test harness.
 - Added service-level tests for note storage.
 - Updated backend documentation for storage and graph behavior.
+
+## 2026-02-01
+- Added non-deterministic LLM tuning settings, prompts, and batching.
+- Added topic cache keyed by checksum and prompt version.
+- Added content checksum to filesystem model and API metadata.
+- Switched relationship scoring to LLM batches with deterministic fallback.
+- Added LLM concurrency and queue guards.
+- Added prompt formatting tests.
 - Updated backend deployment guide for Ubuntu + systemd + Tailscale.
