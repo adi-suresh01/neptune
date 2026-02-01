@@ -20,5 +20,5 @@ class CooccurrenceSimilarity(SimilarityStrategy):
         return len(intersection) / max(len(union), 1)
 
 
-def default_similarity() -> SimilarityStrategy:
+def fallback_similarity() -> SimilarityStrategy:
     return CooccurrenceSimilarity()
