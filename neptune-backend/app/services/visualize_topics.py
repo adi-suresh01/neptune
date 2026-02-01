@@ -4,6 +4,7 @@ import itertools
 import logging
 from app.services.similarity import default_similarity, SimilarityStrategy
 from app.core.settings import settings
+from app.services.llm_service import llm_service
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,20 @@ def find_topic_relationships(
 
     similarity = strategy or default_similarity()
     edges = []
-    for topic1, topic2 in topic_pairs:
-        strength = similarity.score(topic1, topic2, topic_note_map)
-        edges.append((topic1, topic2, strength))
+    batch_size = max(1, settings.llm_relationship_batch_size)
+    pairs = [{"a": a, "b": b} for a, b in topic_pairs]
+
+    for i in range(0, len(pairs), batch_size):
+        batch = pairs[i : i + batch_size]
+        scored = llm_service.score_relationships_batch(batch)
+        scored_map = {(item["a"], item["b"]): item["score"] for item in scored}
+        for pair in batch:
+            key = (pair["a"], pair["b"])
+            if key in scored_map:
+                edges.append((pair["a"], pair["b"], scored_map[key]))
+            else:
+                strength = similarity.score(pair["a"], pair["b"], topic_note_map)
+                edges.append((pair["a"], pair["b"], strength))
 
     logger.info("Found %s relationships between topics", len(edges))
     return edges
