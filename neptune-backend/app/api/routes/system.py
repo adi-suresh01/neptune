@@ -91,6 +91,7 @@ async def metrics():
             "tracked_bytes": total_storage_bytes,
         },
         "cache": {"path": cache_path, "bytes": cache_size},
+        "llm": llm_service.metrics(),
         "knowledge_graph": {
             "cached": bool(graph_data.get("nodes")),
             "node_count": len(graph_data.get("nodes", [])),
