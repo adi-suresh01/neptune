@@ -138,8 +138,9 @@ def generate_knowledge_graph_background():
         for note in notes:
             if note.content and len(note.content.strip()) > 10:
                 formatted_notes.append({
-                    "id": str(note.id), 
-                    "content": note.content
+                    "id": str(note.id),
+                    "content": note.content,
+                    "checksum": note.content_checksum or ""
                 })
         
         if not formatted_notes:
