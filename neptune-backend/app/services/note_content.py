@@ -30,6 +30,7 @@ def store_note_content(item: FileSystem, content: str) -> ContentResult:
         raise ValueError("Note content exceeds size limit")
     checksum = _checksum(data)
     size = len(data)
+    item.content_checksum = checksum
 
     if settings.storage_mode == "db":
         item.content = content
@@ -69,6 +70,7 @@ def load_note_content(item: FileSystem) -> ContentResult:
         data = item.content.encode("utf-8") if item.content else b""
         checksum = _checksum(data) if data else item.storage_checksum
         size = len(data) if data else item.storage_size
+        item.content_checksum = checksum or item.content_checksum
         return ContentResult(item.content, "db", None, checksum, size)
 
     object_key = item.storage_key or _object_key_for_note(item.id)
