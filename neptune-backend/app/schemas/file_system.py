@@ -13,6 +13,7 @@ class FileSystemItem(BaseModel):
     storage_key: Optional[str] = None
     storage_checksum: Optional[str] = None
     storage_size: Optional[int] = None
+    content_checksum: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -26,6 +27,7 @@ class FileSystemMeta(BaseModel):
     storage_key: Optional[str] = None
     storage_checksum: Optional[str] = None
     storage_size: Optional[int] = None
+    content_checksum: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -53,6 +55,7 @@ class FileContentResponse(BaseModel):
     storage_key: Optional[str] = None
     storage_checksum: Optional[str] = None
     storage_size: Optional[int] = None
+    content_checksum: Optional[str] = None
 
 # Add the missing folder-specific schemas
 class FolderCreate(BaseModel):
