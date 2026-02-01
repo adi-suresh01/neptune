@@ -22,6 +22,8 @@ class LLMService:
         self._semaphore = threading.Semaphore(settings.llm_max_concurrency)
         self._queue_lock = threading.Lock()
         self._inflight = 0
+        self._metrics_lock = threading.Lock()
+        self._metrics = {"calls": 0, "batches": 0, "failures": 0}
         self.logger.info("LLM service configured with model %s", self.model_name)
         self.logger.info("LLM endpoint: %s", self.ollama_url)
         if settings.ollama_shared and "localhost" in self.ollama_url:
