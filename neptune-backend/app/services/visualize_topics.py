@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Tuple
 import networkx as nx
 import itertools
 import logging
-from app.services.similarity import default_similarity, SimilarityStrategy
+from app.services.similarity import fallback_similarity, SimilarityStrategy
 from app.core.settings import settings
 from app.services.llm_service import llm_service
 
@@ -23,7 +23,7 @@ def find_topic_relationships(
 
     logger.info("Finding relationships for %s topic pairs", len(topic_pairs))
 
-    similarity = strategy or default_similarity()
+    similarity = strategy or fallback_similarity()
     edges = []
     batch_size = max(1, settings.llm_relationship_batch_size)
     pairs = [{"a": a, "b": b} for a, b in topic_pairs]
