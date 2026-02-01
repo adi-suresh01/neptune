@@ -153,6 +153,23 @@ class LLMService:
         self.logger.info("Consolidated into %s topics", len(result))
         return result
 
+    def extract_topics_batch(self, notes: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+        if not notes:
+            return []
+        prompt = prompts.topic_extraction_prompt(notes)
+        response = self._call_ollama(prompt, max_tokens=settings.ollama_max_tokens)
+        try:
+            data = json.loads(response)
+        except Exception:
+            return []
+        results = []
+        for item in data:
+            topic = str(item.get("topic", "")).strip().lower()
+            note_id = str(item.get("id", "")).strip()
+            if topic and note_id:
+                results.append({"topic": topic, "note_id": note_id})
+        return results
+
     def healthcheck(self) -> Dict[str, Any]:
         try:
             response = self.session.get(
