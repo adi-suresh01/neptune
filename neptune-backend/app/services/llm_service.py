@@ -89,6 +89,8 @@ class LLMService:
             
             for attempt in range(settings.ollama_max_retries + 1):
                 try:
+                    with self._metrics_lock:
+                        self._metrics["calls"] += 1
                     self.logger.info("Calling Ollama with model %s (attempt %s)", self.model_name, attempt + 1)
                     response = self.session.post(
                         f"{self.ollama_url}/api/generate",
@@ -113,6 +115,8 @@ class LLMService:
                     self.logger.error("Error calling Ollama: %s", e)
 
             self._failure_count += 1
+            with self._metrics_lock:
+                self._metrics["failures"] += 1
             if self._failure_count >= settings.ollama_failure_threshold:
                 self._cooldown_until = datetime.utcnow() + timedelta(seconds=settings.ollama_cooldown_seconds)
                 self.logger.warning("LLM cooldown triggered for %s seconds", settings.ollama_cooldown_seconds)
