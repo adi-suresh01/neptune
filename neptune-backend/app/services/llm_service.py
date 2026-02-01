@@ -2,6 +2,7 @@ import requests
 import json
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
+from app.services import prompts
 from dotenv import load_dotenv
 from app.core.settings import settings
 import logging
@@ -59,8 +60,9 @@ class LLMService:
                 "stream": False,
                 "options": {
                     "num_predict": max_tokens,
-                    "temperature": 0.1,
-                    "num_ctx": 2048  # Context window
+                    "temperature": settings.ollama_temperature,
+                    "top_p": settings.ollama_top_p,
+                    "num_ctx": 2048,
                 }
             }
             
