@@ -89,7 +89,10 @@ class LLMService:
                     response = self.session.post(
                         f"{self.ollama_url}/api/generate",
                         json=request_data,
-                        timeout=settings.ollama_timeout_seconds,
+                        timeout=(
+                            settings.ollama_connect_timeout_seconds,
+                            settings.ollama_timeout_seconds,
+                        ),
                     )
 
                     if response.status_code == 200:
