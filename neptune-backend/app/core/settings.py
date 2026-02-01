@@ -41,6 +41,8 @@ class Settings:
     llm_prompt_version: str = os.getenv("LLM_PROMPT_VERSION", "v1")
     llm_topic_batch_size: int = int(os.getenv("LLM_TOPIC_BATCH_SIZE", "8"))
     llm_relationship_batch_size: int = int(os.getenv("LLM_REL_BATCH_SIZE", "20"))
+    llm_max_concurrency: int = int(os.getenv("LLM_MAX_CONCURRENCY", "4"))
+    llm_max_queue: int = int(os.getenv("LLM_MAX_QUEUE", "16"))
 
     kg_cache_path: str = os.getenv("KG_CACHE_PATH", "outputs/kg_cache.json")
     kg_cache_ttl_minutes: int = int(os.getenv("KG_CACHE_TTL_MINUTES", "10"))
