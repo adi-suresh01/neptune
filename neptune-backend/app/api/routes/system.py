@@ -61,6 +61,10 @@ async def system_status():
             "prefix": settings.s3_prefix,
             "error": storage_status.error,
         },
+        "cache": {
+            "topics_path": settings.kg_cache_path,
+            "prompt_version": settings.llm_prompt_version,
+        },
     }
 
 
