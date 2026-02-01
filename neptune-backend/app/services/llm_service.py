@@ -188,6 +188,8 @@ class LLMService:
     def extract_topics_batch(self, notes: List[Dict[str, str]]) -> List[Dict[str, Any]]:
         if not notes:
             return []
+        with self._metrics_lock:
+            self._metrics["batches"] += 1
         prompt = prompts.topic_extraction_prompt(notes)
         response = self._call_ollama(prompt, max_tokens=settings.ollama_max_tokens)
         try:
@@ -213,9 +215,15 @@ class LLMService:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    def metrics(self) -> Dict[str, int]:
+        with self._metrics_lock:
+            return dict(self._metrics)
+
     def score_relationships_batch(self, pairs: List[Dict[str, str]]) -> List[Dict[str, Any]]:
         if not pairs:
             return []
+        with self._metrics_lock:
+            self._metrics["batches"] += 1
         prompt = prompts.relationship_prompt(pairs)
         response = self._call_ollama(prompt, max_tokens=settings.ollama_max_tokens)
         try:
