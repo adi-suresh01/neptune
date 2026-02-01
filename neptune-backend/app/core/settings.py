@@ -31,6 +31,7 @@ class Settings:
     ollama_url: str = os.getenv("OLLAMA_URL", "http://100.122.73.92:11434")
     ollama_model: str = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
     ollama_timeout_seconds: float = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120"))
+    ollama_connect_timeout_seconds: float = float(os.getenv("OLLAMA_CONNECT_TIMEOUT_SECONDS", "5"))
     ollama_healthcheck: bool = os.getenv("OLLAMA_HEALTHCHECK", "true").lower() == "true"
     ollama_max_retries: int = int(os.getenv("OLLAMA_MAX_RETRIES", "2"))
     ollama_failure_threshold: int = int(os.getenv("OLLAMA_FAILURE_THRESHOLD", "3"))
