@@ -50,6 +50,7 @@ class Settings:
     kg_cache_ttl_minutes: int = int(os.getenv("KG_CACHE_TTL_MINUTES", "10"))
     kg_cache_version: str = os.getenv("KG_CACHE_VERSION", "v1")
     max_note_bytes: int = int(os.getenv("MAX_NOTE_BYTES", "1048576"))
+    min_note_chars: int = int(os.getenv("MIN_NOTE_CHARS", "1"))
     kg_min_strength: float = float(os.getenv("KG_MIN_STRENGTH", "0.2"))
     kg_max_edges: int = int(os.getenv("KG_MAX_EDGES", "500"))
 
