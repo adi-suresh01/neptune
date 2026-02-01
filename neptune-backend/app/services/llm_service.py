@@ -181,6 +181,28 @@ class LLMService:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    def score_relationships_batch(self, pairs: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+        if not pairs:
+            return []
+        prompt = prompts.relationship_prompt(pairs)
+        response = self._call_ollama(prompt, max_tokens=settings.ollama_max_tokens)
+        try:
+            data = json.loads(response)
+        except Exception:
+            return []
+        results = []
+        for item in data:
+            a = str(item.get("a", "")).strip()
+            b = str(item.get("b", "")).strip()
+            score = item.get("score")
+            try:
+                score_val = float(score)
+            except Exception:
+                continue
+            if a and b:
+                results.append({"a": a, "b": b, "score": max(0.0, min(1.0, score_val))})
+        return results
+
 # Create a singleton instance
 llm_service = LLMService()
 
