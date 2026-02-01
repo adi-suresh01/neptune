@@ -136,7 +136,7 @@ def generate_knowledge_graph_background():
         # Format notes for LLM processing
         formatted_notes = []
         for note in notes:
-            if note.content and len(note.content.strip()) > 10:
+            if note.content and len(note.content.strip()) >= settings.min_note_chars:
                 formatted_notes.append({
                     "id": str(note.id),
                     "content": note.content,
