@@ -6,6 +6,7 @@ from app.services import prompts
 from dotenv import load_dotenv
 from app.core.settings import settings
 import logging
+import threading
 
 load_dotenv()
 
@@ -18,6 +19,9 @@ class LLMService:
         self._cooldown_until: datetime | None = None
         self.session = requests.Session()
         self.logger = logging.getLogger(__name__)
+        self._semaphore = threading.Semaphore(settings.llm_max_concurrency)
+        self._queue_lock = threading.Lock()
+        self._inflight = 0
         self.logger.info("LLM service configured with model %s", self.model_name)
         self.logger.info("LLM endpoint: %s", self.ollama_url)
 
@@ -51,6 +55,19 @@ class LLMService:
         self._maybe_check_models()
         if self._cooldown_until and datetime.utcnow() < self._cooldown_until:
             self.logger.warning("LLM cooldown active until %s", self._cooldown_until.isoformat())
+            return "unclassified"
+
+        with self._queue_lock:
+            if self._inflight >= settings.llm_max_queue:
+                self.logger.warning("LLM queue full")
+                return "unclassified"
+            self._inflight += 1
+
+        acquired = self._semaphore.acquire(timeout=1)
+        if not acquired:
+            with self._queue_lock:
+                self._inflight -= 1
+            self.logger.warning("LLM concurrency limit reached")
             return "unclassified"
 
         try:
@@ -97,6 +114,10 @@ class LLMService:
         except Exception as e:
             self.logger.error("Unexpected LLM error: %s", e)
             return "unclassified"
+        finally:
+            self._semaphore.release()
+            with self._queue_lock:
+                self._inflight -= 1
     
     def extract_topic_from_note(self, note_content: str, note_id: str) -> Dict[str, Any]:
         """Extract a single topic from a note using Ollama"""
