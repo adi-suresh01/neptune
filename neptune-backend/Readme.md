@@ -79,11 +79,19 @@ Related environment variables:
 ## Knowledge Graph Design
 
 - Topic extraction uses the LLM once per note.
-- Relationship scoring is deterministic (note co-occurrence).
+- Relationship scoring uses the LLM in batches with deterministic fallback.
 - Graph size and strength thresholds are configurable:
   - `KG_MIN_STRENGTH`
   - `KG_MAX_EDGES`
   - `KG_CACHE_VERSION`
+
+## Shared Ollama Service
+
+- The backend expects a shared Ollama service when `OLLAMA_SHARED=true`.
+- Configure:
+  - `OLLAMA_URL=http://<tailscale-ip>:11434`
+  - `OLLAMA_TEMPERATURE`, `OLLAMA_TOP_P`, `OLLAMA_MAX_TOKENS`
+  - `LLM_TOPIC_BATCH_SIZE`, `LLM_REL_BATCH_SIZE`
 
 ## Ubuntu Server Deployment (Tailscale + systemd)
 
