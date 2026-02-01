@@ -35,6 +35,12 @@ class Settings:
     ollama_max_retries: int = int(os.getenv("OLLAMA_MAX_RETRIES", "2"))
     ollama_failure_threshold: int = int(os.getenv("OLLAMA_FAILURE_THRESHOLD", "3"))
     ollama_cooldown_seconds: int = int(os.getenv("OLLAMA_COOLDOWN_SECONDS", "30"))
+    ollama_temperature: float = float(os.getenv("OLLAMA_TEMPERATURE", "0.7"))
+    ollama_top_p: float = float(os.getenv("OLLAMA_TOP_P", "0.9"))
+    ollama_max_tokens: int = int(os.getenv("OLLAMA_MAX_TOKENS", "128"))
+    llm_prompt_version: str = os.getenv("LLM_PROMPT_VERSION", "v1")
+    llm_topic_batch_size: int = int(os.getenv("LLM_TOPIC_BATCH_SIZE", "8"))
+    llm_relationship_batch_size: int = int(os.getenv("LLM_REL_BATCH_SIZE", "20"))
 
     kg_cache_path: str = os.getenv("KG_CACHE_PATH", "outputs/kg_cache.json")
     kg_cache_ttl_minutes: int = int(os.getenv("KG_CACHE_TTL_MINUTES", "10"))
