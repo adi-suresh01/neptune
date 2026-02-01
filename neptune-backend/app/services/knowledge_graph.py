@@ -6,11 +6,12 @@ import os
 import threading
 import logging
 
-from app.services.llm_service import extract_topics_from_notes
+from app.services.llm_service import extract_topics_from_notes, llm_service
 from app.services.visualize_topics import create_topic_graph, graph_to_frontend_format
 from app.db.models import FileSystem
 from app.db.database import SessionLocal
 from app.core.settings import settings
+from app.services.topic_cache import topic_cache
 
 logger = logging.getLogger(__name__)
 # Cache for the latest graph data
@@ -151,8 +152,31 @@ def generate_knowledge_graph_background():
         generation_status["last_heartbeat"] = datetime.now().isoformat()
         logger.info("Processing %s notes with Ollama", len(formatted_notes))
         
-        # Process with Ollama (topic extraction).
-        topics_data = extract_topics_from_notes(formatted_notes)
+        # Process with Ollama (topic extraction) with cache.
+        cached_topics = []
+        notes_to_process = []
+        for note in formatted_notes:
+            cached = topic_cache.get(note["id"], note.get("checksum", ""))
+            if cached:
+                cached_topics.append({"topic": cached, "note_id": note["id"]})
+            else:
+                notes_to_process.append(note)
+
+        new_topics = []
+        if notes_to_process:
+            batch_size = max(1, settings.llm_topic_batch_size)
+            for i in range(0, len(notes_to_process), batch_size):
+                batch = notes_to_process[i : i + batch_size]
+                batch_topics = llm_service.extract_topics_batch(batch)
+                new_topics.extend(batch_topics)
+
+            for item in new_topics:
+                note = next((n for n in notes_to_process if n["id"] == item["note_id"]), None)
+                if note and note.get("checksum"):
+                    topic_cache.set(note["id"], note["checksum"], item["topic"])
+            topic_cache.flush()
+
+        topics_data = cached_topics + new_topics
         
         if topics_data:
             generation_status["progress"] = "building_graph"
