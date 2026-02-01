@@ -47,6 +47,11 @@ async def system_status():
         "llm": {
             "endpoint": settings.ollama_url,
             "model": settings.ollama_model,
+            "temperature": settings.ollama_temperature,
+            "top_p": settings.ollama_top_p,
+            "batch_topics": settings.llm_topic_batch_size,
+            "batch_relationships": settings.llm_relationship_batch_size,
+            "prompt_version": settings.llm_prompt_version,
         },
         "storage": {
             "enabled": storage_status.enabled,
