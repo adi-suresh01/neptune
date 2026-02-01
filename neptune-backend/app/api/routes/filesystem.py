@@ -59,6 +59,7 @@ async def get_file_system(
             storage_key=default_note.storage_key,
             storage_checksum=default_note.storage_checksum,
             storage_size=default_note.storage_size,
+            content_checksum=default_note.content_checksum,
         )]
     
     response_items = []
@@ -74,6 +75,7 @@ async def get_file_system(
                 storage_key=item.storage_key,
                 storage_checksum=item.storage_checksum,
                 storage_size=item.storage_size,
+                content_checksum=item.content_checksum,
             )
         )
     return response_items
@@ -107,6 +109,7 @@ async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(
         storage_key=db_item.storage_key,
         storage_checksum=db_item.storage_checksum,
         storage_size=db_item.storage_size,
+        content_checksum=db_item.content_checksum,
     )
 
 @router.put("/{item_id}/content", response_model=FileSystemItem)
@@ -148,6 +151,7 @@ async def update_file_content(
         storage_key=db_item.storage_key,
         storage_checksum=db_item.storage_checksum,
         storage_size=db_item.storage_size,
+        content_checksum=db_item.content_checksum,
     )
 
 @router.get("/{item_id}", response_model=FileSystemItem)
@@ -172,6 +176,7 @@ async def get_file_by_id(item_id: int, db: Session = Depends(get_db)):
         storage_key=result.storage_key,
         storage_checksum=result.storage_checksum,
         storage_size=result.storage_size,
+        content_checksum=item.content_checksum,
     )
 
 
@@ -193,6 +198,7 @@ async def get_file_content(item_id: int, db: Session = Depends(get_db)):
         storage_key=result.storage_key,
         storage_checksum=result.storage_checksum,
         storage_size=result.storage_size,
+        content_checksum=item.content_checksum,
     )
 
 @router.delete("/{item_id}", response_model=DeleteResponse)
