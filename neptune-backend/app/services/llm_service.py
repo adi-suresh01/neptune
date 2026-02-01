@@ -24,6 +24,8 @@ class LLMService:
         self._inflight = 0
         self.logger.info("LLM service configured with model %s", self.model_name)
         self.logger.info("LLM endpoint: %s", self.ollama_url)
+        if settings.ollama_shared and "localhost" in self.ollama_url:
+            self.logger.warning("OLLAMA_SHARED is enabled but endpoint is localhost")
 
     def _maybe_check_models(self) -> None:
         if self._checked_models or not settings.ollama_healthcheck:
