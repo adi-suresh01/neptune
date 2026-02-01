@@ -29,6 +29,7 @@ class Settings:
     db_connect_timeout_seconds: int = int(os.getenv("DB_CONNECT_TIMEOUT_SECONDS", "5"))
 
     ollama_url: str = os.getenv("OLLAMA_URL", "http://100.122.73.92:11434")
+    ollama_shared: bool = os.getenv("OLLAMA_SHARED", "true").lower() == "true"
     ollama_model: str = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
     ollama_timeout_seconds: float = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120"))
     ollama_connect_timeout_seconds: float = float(os.getenv("OLLAMA_CONNECT_TIMEOUT_SECONDS", "5"))
