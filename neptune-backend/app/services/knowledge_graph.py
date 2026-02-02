@@ -12,6 +12,7 @@ from app.db.models import FileSystem
 from app.db.database import SessionLocal
 from app.core.settings import settings
 from app.services.topic_cache import topic_cache
+from app.services.note_content import load_note_content
 
 logger = logging.getLogger(__name__)
 # Cache for the latest graph data
@@ -121,11 +122,12 @@ def generate_knowledge_graph_background():
         generation_status["last_heartbeat"] = datetime.now().isoformat()
         
         # Get ALL notes from database
-        notes = db.query(FileSystem).filter(
-            FileSystem.type == "file",
-            FileSystem.content.isnot(None),
-            FileSystem.content != ""
-        ).all()
+        notes = (
+            db.query(FileSystem)
+            .filter(FileSystem.type == "file")
+            .filter(FileSystem.deleted_at.is_(None))
+            .all()
+        )
         
         if not notes:
             logger.info("No notes found in database")
@@ -136,10 +138,15 @@ def generate_knowledge_graph_background():
         # Format notes for LLM processing
         formatted_notes = []
         for note in notes:
-            if note.content and len(note.content.strip()) >= settings.min_note_chars:
+            try:
+                loaded = load_note_content(note)
+                content = loaded.content or ""
+            except Exception:
+                content = ""
+            if content and len(content.strip()) >= settings.min_note_chars:
                 formatted_notes.append({
                     "id": str(note.id),
-                    "content": note.content,
+                    "content": content,
                     "checksum": note.content_checksum or ""
                 })
         
