@@ -72,6 +72,9 @@ class Settings:
     s3_max_retries: int = int(os.getenv("S3_MAX_RETRIES", "2"))
 
     vector_backend: str = os.getenv("VECTOR_BACKEND", "none").lower()
+    search_mode: str = os.getenv("SEARCH_MODE", "auto").lower()
+    search_min_query_len: int = int(os.getenv("SEARCH_MIN_QUERY_LEN", "2"))
+    search_max_results: int = int(os.getenv("SEARCH_MAX_RESULTS", "50"))
 
     def resolved_cors_origins(self) -> List[str]:
         if self.environment == "production" and self.cors_allow_all:
