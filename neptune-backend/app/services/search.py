@@ -66,7 +66,8 @@ def ensure_fts(db: Session) -> None:
             BEGIN
               DELETE FROM filesystem_fts WHERE rowid = OLD.id;
               INSERT INTO filesystem_fts(rowid, name, content, file_id)
-              VALUES (NEW.id, NEW.name, COALESCE(NEW.content, ''), NEW.id);
+              SELECT NEW.id, NEW.name, COALESCE(NEW.content, ''), NEW.id
+              WHERE NEW.type = 'file' AND NEW.deleted_at IS NULL;
             END;
             """
         )
