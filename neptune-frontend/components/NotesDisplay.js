@@ -43,7 +43,6 @@ const NotesDisplay = ({ selectedItem }) => {
         setLoading(true);
         setStatus("loading");
 
-        // 👈 Use the new API system instead of hardcoded fetch
         const res = await api.filesystem.get(selectedItem.id);
 
         if (!res.ok) {
