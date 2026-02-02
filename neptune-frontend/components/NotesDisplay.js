@@ -220,6 +220,11 @@ const NotesDisplay = ({ selectedItem }) => {
               You have unsaved changes
             </div>
           )}
+          {status === "conflict" && (
+            <div className="mt-2 text-xs text-yellow-400">
+              This note changed elsewhere. Reload to get the latest version.
+            </div>
+          )}
         </div>
       )}
     </div>
