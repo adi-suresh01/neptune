@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Folder, FileText } from "lucide-react";
-import { api } from "@/lib/api"; // 👈 Import the new API system
+import { api } from "@/lib/api";
 
 const buildTree = (items) => {
   if (!Array.isArray(items)) {
@@ -126,7 +126,6 @@ const FileSystemDisplay = ({ onClick, selectedItem }) => {
         setLoading(true);
         setError(null);
 
-        // 👈 Use the new API system instead of hardcoded fetch
         const res = await api.filesystem.list();
 
         if (!res.ok) {

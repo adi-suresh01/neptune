@@ -7,8 +7,8 @@ import NotesDisplay from "@/components/NotesDisplay";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EarthIcon as PlanetIcon, FileText, Network, Trash2, Plus, Loader2 } from "lucide-react";
-import { api, checkBackendHealth } from "@/lib/api"; // 👈 Use the new API system
+import { EarthIcon as PlanetIcon, FileText, Network, Trash2, Plus, Loader2, AlertTriangle } from "lucide-react";
+import { api, checkBackendHealth } from "@/lib/api";
 
 export interface FileSystemItem {
   id: number;
@@ -42,8 +42,6 @@ const Home = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
 
-  const generateRandomId = () => Math.floor(Math.random() * 1000000);
-
   // Check backend health on startup
   useEffect(() => {
     let attempts = 0;
@@ -54,11 +52,9 @@ const Home = () => {
       setIsCheckingBackend(true);
       
       try {
-        console.log(`🔍 Backend check attempt ${attempts}/${maxAttempts}`);
         const isHealthy = await checkBackendHealth();
         
         if (isHealthy) {
-          console.log('✅ Backend is ready!');
           setBackendReady(true);
           setBackendError(null);
           setIsCheckingBackend(false);
@@ -71,11 +67,9 @@ const Home = () => {
           return;
         }
         
-        console.log(`⏳ Backend not ready, attempt ${attempts}/${maxAttempts}. Retrying in 3 seconds...`);
         setTimeout(checkBackend, 3000);
         
       } catch (error) {
-        console.error('Backend health check failed:', error);
         if (attempts >= maxAttempts) {
           setBackendError('Failed to connect to Neptune backend');
           setIsCheckingBackend(false);
@@ -100,10 +94,9 @@ const Home = () => {
     try {
       // 👈 Use the new API system instead of hardcoded fetch
       const res = await api.filesystem.create({
-        id: id,
         name: file,
         type: "file",
-        parent: null,
+        parent_id: null,
       });
 
       if (!res.ok) throw new Error("Failed to create file");
@@ -135,7 +128,6 @@ const Home = () => {
       }
 
       refreshFileSystem();
-      console.log("File deleted successfully");
     } catch (err) {
       console.error("Error deleting file:", err);
       alert("Failed to delete file. Please try again.");
@@ -179,7 +171,6 @@ const Home = () => {
     setShowGraph(false);
     setShowNotes(true);
     
-    console.log(`Switched to note ${noteId}`);
   };
 
   // Show backend loading state
@@ -203,7 +194,7 @@ const Home = () => {
       <div className="flex h-screen bg-gray-900 text-gray-100 pt-7">
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center space-y-4 max-w-md text-center">
-            <div className="text-red-400 text-6xl">⚠️</div>
+            <AlertTriangle className="w-12 h-12 text-red-400" />
             <h2 className="text-xl font-semibold text-red-400">Backend Connection Failed</h2>
             <p className="text-gray-400">{backendError}</p>
             <div className="flex space-x-2">
