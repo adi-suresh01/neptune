@@ -1,101 +1,52 @@
-// Try multiple ports for the backend
 const POSSIBLE_PORTS = [8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8008, 8009];
 
-// Check if we're in production (Tauri) mode
 function isProductionMode(): boolean {
   if (typeof window === 'undefined') return false;
-  
-  const isTauri = window.location.protocol === 'tauri:' || 
-                  window.location.hostname === 'tauri.localhost' ||
-                  // @ts-ignore
-                  window.__TAURI__ !== undefined;
-  
-  console.log('🔍 Environment check:', {
-    protocol: window.location.protocol,
-    hostname: window.location.hostname,
-    href: window.location.href,
-    isTauri,
+  const isTauri =
+    window.location.protocol === 'tauri:' ||
+    window.location.hostname === 'tauri.localhost' ||
     // @ts-ignore
-    hasTauriAPI: window.__TAURI__ !== undefined
-  });
-  
+    window.__TAURI__ !== undefined;
   return isTauri;
 }
 
-// Enhanced backend discovery with production support
 async function findBackendUrl(): Promise<string> {
-  console.log('🔍 Looking for Neptune backend...');
-  console.log('🔍 Testing ports:', POSSIBLE_PORTS);
-  
   const isProduction = isProductionMode();
   if (isProduction) {
-    console.log('🖥️  Production mode detected - waiting for backend startup...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   }
-  
-  const results: Array<{port: number, status: string, error?: string, data?: any}> = [];
-  
+
   for (const port of POSSIBLE_PORTS) {
     const url = `http://localhost:${port}`;
     try {
-      console.log(`  🔍 Testing ${url}...`);
-      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
+
       const response = await fetch(`${url}/health`, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
+          Accept: 'application/json',
+          'Cache-Control': 'no-cache',
         },
-        signal: controller.signal
+        signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
-      
-      console.log(`  📊 ${url} response: ${response.status} ${response.statusText}`);
-      
+
       if (response.ok) {
-        try {
-          const data = await response.json();
-          console.log(`  📦 ${url} data:`, data);
-          
-          results.push({ port, status: 'success', data });
-          
-          // 👈 FIXED: Accept any healthy backend (more flexible)
-          if (data.status === 'healthy') {
-            console.log(`✅ Healthy backend found at ${url}`);
-            return url;
-          } else {
-            console.log(`  ⚠️  ${url} returned non-healthy status:`, data);
-          }
-        } catch (jsonError) {
-          console.log(`  ❌ ${url} returned invalid JSON:`, jsonError);
-          results.push({ port, status: 'invalid_json', error: jsonError.message });
+        const data = await response.json();
+        if (data.status === 'healthy') {
+          return url;
         }
-      } else {
-        console.log(`  ❌ ${url} returned ${response.status}: ${response.statusText}`);
-        results.push({ port, status: `http_${response.status}` });
       }
-    } catch (error) {
-      console.log(`  ❌ ${url} failed:`, error.message);
-      results.push({ port, status: 'error', error: error.message });
+    } catch {
+      continue;
     }
   }
-  
-  console.log('🔍 Backend discovery results:', results);
-  
-  // If we found any responding servers (even if not healthy), show them
-  const respondingServers = results.filter(r => r.status === 'success' || r.status.startsWith('http_'));
-  if (respondingServers.length > 0) {
-    console.log('📡 Found responding servers:', respondingServers);
-  }
-  
+
   throw new Error(`No healthy backend found. Tested ports: ${POSSIBLE_PORTS.join(', ')}`);
 }
 
-// Timeout wrapper for fetch
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 8000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -139,27 +90,22 @@ export const apiRequest = async (
         if (!discoveryInProgress) {
           try {
             discoveryInProgress = true;
-            console.log(`🔍 Attempt ${attempt + 1}: Discovering backend...`);
             currentBaseUrl = await findBackendUrl();
             API_BASE_URL = currentBaseUrl;
             hasTriedDiscovery = true;
-            console.log(`🎯 Using ${currentBaseUrl}`);
           } catch (discoveryError) {
-            console.log(`🔍 Discovery failed:`, discoveryError.message);
             if (attempt === 0) {
-              console.log('⏳ Backend might still be starting...');
+              // Initial discovery may fail while backend starts.
             }
           } finally {
             discoveryInProgress = false;
           }
         } else {
-          console.log('⏳ Discovery already in progress, waiting...');
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       
       const url = `${currentBaseUrl}${endpoint}`;
-      console.log(`📡 ${attempt + 1}/${maxRetries}: ${endpoint} → ${url}`);
       
       const response = await fetchWithTimeout(url, {
         ...options,
@@ -171,10 +117,7 @@ export const apiRequest = async (
         },
       }, isProduction ? 12000 : 6000);
       
-      console.log(`📊 Response for ${endpoint}: ${response.status} ${response.statusText}`);
-      
       if (response.ok) {
-        console.log(`✅ Success: ${endpoint}`);
         return response;
       }
       
@@ -185,11 +128,8 @@ export const apiRequest = async (
     } catch (error) {
       const isLastAttempt = attempt === maxRetries - 1;
       
-      console.log(`❌ ${attempt + 1}/${maxRetries} failed:`, error.message);
-      
       // If it's a network error, reset discovery for next attempt
       if (error.name === 'AbortError' || error.message.includes('fetch') || error.message.includes('NetworkError')) {
-        console.log('🔄 Network error detected, will rediscover backend on next attempt');
         hasTriedDiscovery = false;
       }
       
@@ -197,7 +137,6 @@ export const apiRequest = async (
         throw new Error(`Backend unavailable after ${maxRetries} attempts: ${error.message}`);
       }
       
-      console.log(`⏳ Retrying in ${retryDelay}ms... (${maxRetries - attempt - 1} attempts left)`);
       await new Promise(resolve => setTimeout(resolve, retryDelay));
     }
   }
@@ -207,42 +146,65 @@ export const apiRequest = async (
 
 export const checkBackendHealth = async (): Promise<boolean> => {
   try {
-    console.log('🩺 Health check starting...');
     const isProduction = isProductionMode();
     const response = await apiRequest('/health', {}, { 
       maxRetries: isProduction ? 15 : 6, 
       retryDelay: isProduction ? 2000 : 1500 
     });
-    console.log('✅ Health check passed');
     return response.ok;
   } catch (error) {
-    console.error('❌ Health check failed:', error.message);
     return false;
   }
 };
 
-// Force reset discovery (useful for debugging)
 export const resetBackendDiscovery = () => {
-  console.log('🔄 Resetting backend discovery...');
   API_BASE_URL = 'http://localhost:8000';
   discoveryInProgress = false;
 };
 
-// 👈 FIXED: Add trailing slashes and use correct endpoints
 export const api = {
   health: () => apiRequest('/health'),
   
   filesystem: {
-    list: () => apiRequest('/api/filesystem/'),  // 👈 Added trailing slash
-    create: (data: any) => apiRequest('/api/filesystem/', { method: 'POST', body: JSON.stringify(data) }),  // 👈 Added trailing slash  
+    list: (params?: { owner_id?: string; limit?: number; offset?: number }) => {
+      const query = params
+        ? `?${new URLSearchParams(
+            Object.entries(params).filter(([, v]) => v !== undefined) as Array<[string, string]>
+          ).toString()}`
+        : '';
+      return apiRequest(`/api/filesystem/${query}`);
+    },
+    create: (data: { name: string; type: string; parent_id?: number | null; owner_id?: string | null }) =>
+      apiRequest('/api/filesystem/', { method: 'POST', body: JSON.stringify(data) }),
     get: (id: number) => apiRequest(`/api/filesystem/${id}`),
-    update: (id: number, data: any) => apiRequest(`/api/filesystem/${id}/content`, { method: 'PUT', body: JSON.stringify(data) }),  // 👈 Use /content endpoint
+    update: (id: number, data: { content: string; content_checksum?: string | null }) =>
+      apiRequest(`/api/filesystem/${id}/content`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) => apiRequest(`/api/filesystem/${id}`, { method: 'DELETE' }),
+    restore: (id: number) => apiRequest(`/api/filesystem/${id}/restore`, { method: 'POST' }),
   },
   
   knowledgeGraph: {
-    get: () => apiRequest('/api/knowledge-graph/'),  // 👈 Added trailing slash
+    get: () => apiRequest('/api/knowledge-graph/'),
     refresh: () => apiRequest('/api/knowledge-graph/refresh', { method: 'POST' }),
     status: () => apiRequest('/api/knowledge-graph/status'),
+  },
+
+  search: {
+    query: (q: string, limit?: number) => {
+      const params = new URLSearchParams({ q });
+      if (limit) params.set('limit', String(limit));
+      return apiRequest(`/api/search?${params.toString()}`);
+    },
+  },
+
+  embeddings: {
+    backfill: (limit?: number) => {
+      const params = limit ? `?limit=${limit}` : '';
+      return apiRequest(`/api/embeddings/backfill${params}`, { method: 'POST' });
+    },
+    related: (fileId: number, topK?: number) => {
+      const params = topK ? `?top_k=${topK}` : '';
+      return apiRequest(`/api/embeddings/related/${fileId}${params}`);
+    },
   },
 };
