@@ -543,11 +543,18 @@ function KnowledgeGraph({ onSelectNote }) {
       return;
     }
 
-    const directNotes = (topicNode.noteDetails || []).map((note) => ({
+    let directNotes = (topicNode.noteDetails || []).map((note) => ({
       id: note.id,
       name: note.name,
       strength: 1.0,
     }));
+    if (directNotes.length === 0 && topicNode.noteIds && topicNode.noteIds.length > 0) {
+      directNotes = topicNode.noteIds.map((noteId) => ({
+        id: noteId,
+        name: `Note ${noteId}`,
+        strength: 1.0,
+      }));
+    }
 
     const noteIds = (topicNode.noteDetails || []).map((note) => note.id).length
       ? (topicNode.noteDetails || []).map((note) => note.id)
