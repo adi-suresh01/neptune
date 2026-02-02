@@ -12,6 +12,7 @@ from app.schemas.file_system import (
 from pydantic import BaseModel
 from datetime import datetime
 from app.services.note_content import store_note_content, load_note_content
+from app.services.search import index_note
 import logging
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ async def get_file_system(
         db.add(default_note)
         db.commit()
         db.refresh(default_note)
+        index_note(db, default_note, default_note.content)
         return [FileSystemMeta(
             id=default_note.id,
             owner_id=default_note.owner_id,
@@ -97,6 +99,7 @@ async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
+    index_note(db, db_item, db_item.content)
     
     return FileSystemItem(
         id=db_item.id,
@@ -139,6 +142,7 @@ async def update_file_content(
     db_item.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_item)
+    index_note(db, db_item, content)
     
     return FileSystemItem(
         id=db_item.id,
