@@ -58,6 +58,7 @@ class Settings:
     min_note_chars: int = int(os.getenv("MIN_NOTE_CHARS", "1"))
     kg_min_strength: float = float(os.getenv("KG_MIN_STRENGTH", "0.2"))
     kg_max_edges: int = int(os.getenv("KG_MAX_EDGES", "500"))
+    max_note_revisions: int = int(os.getenv("MAX_NOTE_REVISIONS", "20"))
 
     s3_endpoint: str | None = os.getenv("S3_ENDPOINT")
     s3_access_key: str | None = os.getenv("S3_ACCESS_KEY")
