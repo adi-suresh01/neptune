@@ -127,9 +127,29 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     try:
         from app.services.search import ensure_fts
+        from app.services.embeddings import load_embeddings_map
+        from app.services.vector_index_faiss import rebuild_index
         db = SessionLocal()
         try:
             ensure_fts(db)
+            embeddings = (
+                db.query(Base.metadata.tables["note_embeddings"].c.file_id,
+                         Base.metadata.tables["note_embeddings"].c.vector)
+                .all()
+            )
+            parsed = []
+            dim = None
+            for file_id, vector_json in embeddings:
+                try:
+                    vec = json.loads(vector_json)
+                except Exception:
+                    continue
+                if not vec:
+                    continue
+                dim = dim or len(vec)
+                parsed.append((file_id, vec))
+            if dim:
+                rebuild_index(parsed, dim)
             db.commit()
         finally:
             db.close()
