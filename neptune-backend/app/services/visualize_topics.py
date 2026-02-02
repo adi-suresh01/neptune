@@ -85,6 +85,7 @@ def find_topic_relationships_embeddings(
         vb = topic_vectors[b]
         denom = _norm(va) * _norm(vb)
         score = sum(x * y for x, y in zip(va, vb)) / denom
+        score = max(0.0, min(1.0, score))
         edges.append((a, b, float(score)))
 
     logger.info("Found %s embedding-based relationships between topics", len(edges))
@@ -116,7 +117,7 @@ def create_topic_graph(
         )
     
     # Find and add relationships between topics
-    if note_embeddings:
+    if note_embeddings is not None:
         topic_relationships = find_topic_relationships_embeddings(topic_note_map, note_embeddings)
     else:
         topic_relationships = find_topic_relationships(topic_note_map)

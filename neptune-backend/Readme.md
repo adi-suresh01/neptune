@@ -71,11 +71,22 @@
 
 - SQLite mode uses FTS5 by default.
 - Configuration:
-  - `SEARCH_MODE=auto|fts|fallback`
+  - `SEARCH_MODE=semantic|auto|fts|fallback`
   - `SEARCH_MIN_QUERY_LEN` (default: 2)
   - `SEARCH_MAX_RESULTS` (default: 50)
 - Endpoint:
   - `GET /api/search?q=your+query`
+
+## Embeddings + Vector Index
+
+- Ollama embeddings are used for semantic search and graph edge strength.
+- Configuration:
+  - `OLLAMA_EMBED_MODEL` (default: `nomic-embed-text`)
+  - `EMBEDDING_MAX_CHARS` (default: 8000)
+  - `VECTOR_INDEX_PATH` (default: `~/.neptune/vector.index`)
+- Endpoints:
+  - `POST /api/embeddings/backfill` (refresh missing embeddings)
+  - `GET /api/embeddings/related/{file_id}` (top related notes)
 
 ## Revisions
 

@@ -56,6 +56,7 @@ async def system_status():
         "llm": {
             "endpoint": settings.ollama_url,
             "model": settings.ollama_model,
+            "embed_model": settings.embedding_model,
             "temperature": settings.ollama_temperature,
             "top_p": settings.ollama_top_p,
             "batch_topics": settings.llm_topic_batch_size,
@@ -77,6 +78,10 @@ async def system_status():
         "search": {
             "mode": settings.search_mode,
             "fts_available": fts_ok,
+        },
+        "vector": {
+            "backend": settings.vector_backend,
+            "index_path": settings.vector_index_path,
         },
     }
 

@@ -4,6 +4,7 @@ from app.api.routes import router as api_router
 from app.core.logging import configure_logging, request_id_ctx
 from app.core.settings import settings
 from app.db.database import init_db
+from app.services.embeddings import start_background_backfill
 import logging
 import socket
 import sys
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Neptune Backend...")
     init_db()
+    start_background_backfill()
     logger.info("Neptune Backend ready!")
     
     yield

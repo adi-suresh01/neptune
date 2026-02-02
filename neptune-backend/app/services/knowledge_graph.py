@@ -13,7 +13,7 @@ from app.db.database import SessionLocal
 from app.core.settings import settings
 from app.services.topic_cache import topic_cache
 from app.services.note_content import load_note_content
-from app.services.embeddings import load_embeddings_map
+from app.services.embeddings import load_embeddings_map, upsert_embedding
 
 logger = logging.getLogger(__name__)
 # Cache for the latest graph data
@@ -150,7 +150,20 @@ def generate_knowledge_graph_background():
                     "content": content,
                     "checksum": note.content_checksum or ""
                 })
+
+            if content and len(content.strip()) >= settings.min_note_chars:
+                try:
+                    upsert_embedding(db, note, content)
+                except Exception as e:
+                    logger.warning("Embedding upsert failed for note %s: %s", note.id, e)
         
+        if formatted_notes:
+            try:
+                db.commit()
+            except Exception as e:
+                logger.warning("Failed to commit embeddings: %s", e)
+                db.rollback()
+
         if not formatted_notes:
             logger.info("No meaningful content found in notes")
             empty_graph = {"nodes": [], "links": []}
@@ -191,12 +204,20 @@ def generate_knowledge_graph_background():
             generation_status["progress"] = "building_graph"
             generation_status["last_heartbeat"] = datetime.now().isoformat()
             
-            # Create knowledge graph - SLOW OLLAMA CALLS HAPPEN HERE
-            note_ids = []
+            topic_map: Dict[str, List[str]] = {}
             for item in topics_data:
+                topic = item.get("topic")
+                note_id = str(item.get("note_id", "")).strip()
+                if not topic or not note_id:
+                    continue
+                topic_map.setdefault(topic, []).append(note_id)
+
+            condensed = [{"topic": topic, "note_ids": note_ids} for topic, note_ids in topic_map.items()]
+            note_ids = []
+            for item in condensed:
                 note_ids.extend([int(n) for n in item.get("note_ids", []) if str(n).isdigit()])
             embeddings_map = load_embeddings_map(db, list(set(note_ids)))
-            graph = create_topic_graph(topics_data, note_embeddings=embeddings_map)
+            graph = create_topic_graph(condensed, note_embeddings=embeddings_map)
             graph_data = graph_to_frontend_format(graph)
             
             # Cache the result

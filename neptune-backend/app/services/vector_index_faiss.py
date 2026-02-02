@@ -71,7 +71,9 @@ def load_index(dim: int) -> FaissIndex:
         index = faiss.read_index(path)
         if index.d != dim:
             index = _create_index(dim).index
-        _index = FaissIndex(index=faiss.IndexIDMap2(index), dim=dim)
+        if not isinstance(index, faiss.IndexIDMap2):
+            index = faiss.IndexIDMap2(index)
+        _index = FaissIndex(index=index, dim=dim)
     else:
         _index = _create_index(dim)
     _index_dim = dim
