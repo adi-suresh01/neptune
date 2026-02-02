@@ -4,14 +4,14 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { Loader2, Folder, Save, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SelectedItem } from "@/app/page";
 import ReactMarkdown from "react-markdown";
-import { api } from "@/lib/api"; // 👈 Import the new API system
+import { api } from "@/lib/api";
 
 const NotesDisplay = ({ selectedItem }) => {
   const [note, setNote] = useState(null);
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
+  const [contentChecksum, setContentChecksum] = useState(null);
   const [status, setStatus] = useState("idle");
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -22,6 +22,7 @@ const NotesDisplay = ({ selectedItem }) => {
       setNote(null);
       setContent("");
       setOriginalContent("");
+      setContentChecksum(null);
       setStatus("idle");
       setHasChanges(false);
       return;
@@ -31,6 +32,7 @@ const NotesDisplay = ({ selectedItem }) => {
       setNote(null);
       setContent("");
       setOriginalContent("");
+      setContentChecksum(null);
       setStatus("idle");
       setHasChanges(false);
       return;
@@ -52,6 +54,7 @@ const NotesDisplay = ({ selectedItem }) => {
         setNote(data);
         setContent(data.content || "");
         setOriginalContent(data.content || "");
+        setContentChecksum(data.content_checksum || null);
         setStatus("idle");
         setHasChanges(false);
       } catch (err) {
@@ -76,16 +79,22 @@ const NotesDisplay = ({ selectedItem }) => {
 
     try {
       setStatus("saving");
-      console.log("CONTENT:", content, selectedItem.id);
-      
-      // 👈 Use the new API system instead of hardcoded fetch
-      const res = await api.filesystem.update(selectedItem.id, { content });
+      const res = await api.filesystem.update(selectedItem.id, { 
+        content, 
+        content_checksum: contentChecksum 
+      });
 
       if (!res.ok) {
+        if (res.status === 409) {
+          setStatus("conflict");
+          return;
+        }
         throw new Error("Failed to save note");
       }
 
+      const data = await res.json();
       setOriginalContent(content);
+      setContentChecksum(data.content_checksum || null);
       setStatus("saved");
       setHasChanges(false);
 
@@ -130,6 +139,13 @@ const NotesDisplay = ({ selectedItem }) => {
           <div className="flex items-center text-red-500">
             <AlertCircle className="w-3 h-3 mr-2" />
             <span>Error</span>
+          </div>
+        );
+      case "conflict":
+        return (
+          <div className="flex items-center text-yellow-500">
+            <AlertCircle className="w-3 h-3 mr-2" />
+            <span>Out of date</span>
           </div>
         );
       default:
