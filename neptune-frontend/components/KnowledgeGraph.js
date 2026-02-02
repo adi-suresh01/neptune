@@ -526,11 +526,7 @@ function KnowledgeGraph({ onSelectNote }) {
     };
   }, [generationStatus.is_generating]);
 
-  const handleSelectNode = (nodeId) => {
-    if (onSelectNote) {
-      onSelectNote(nodeId);
-    }
-  };
+  const handleSelectNode = () => {};
 
   const handleNodeHover = async (topicName, position) => {
     if (hoverTimeout) {
