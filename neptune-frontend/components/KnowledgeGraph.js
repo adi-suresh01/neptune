@@ -7,9 +7,8 @@ import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 import { Loader2, RefreshCw, Zap, Network } from "lucide-react";
-import { api } from "@/lib/api"; // 👈 Import the new API system
+import { api } from "@/lib/api";
 
-// HoverPopup component (unchanged)
 const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, onMouseLeave }) => {
   if (!topic || !relatedNotes || relatedNotes.length === 0) return null;
 
@@ -145,7 +144,6 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
   );
 };
 
-// Node component (unchanged)
 const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = false, onClick, id, onHover, onHoverEnd }) => {
   const meshRef = useRef();
   const [hovered, setHovered] = useState(false);
@@ -221,7 +219,6 @@ const Node = ({ position, label, nodeSize = 2, color = '#4b92ff', selected = fal
   );
 };
 
-// Edge component (unchanged)
 const Edge = ({ start, end, strength = 0.5 }) => {
   const coreRef = useRef();
   const glowRef = useRef();
@@ -296,10 +293,8 @@ const Edge = ({ start, end, strength = 0.5 }) => {
   );
 };
 
-// GraphScene component (unchanged)
 const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
   const [selectedNode, setSelectedNode] = useState(null);
-  const [hoveredNode, setHoveredNode] = useState(null);
   const { scene, camera } = useThree();
   
   useEffect(() => {
@@ -349,10 +344,6 @@ const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
         onSelectNode(nodeId);
       }
     }
-  };
-
-  const handleNodeHover = (nodeId, position) => {
-    setHoveredNode(nodeId ? { id: nodeId, position } : null);
   };
 
   return (
@@ -405,16 +396,6 @@ const GraphScene = ({ data, onSelectNode, onNodeHover, onNodeHoverEnd }) => {
         />
       </EffectComposer>
       
-      {hoveredNode && (
-        <HoverPopup
-          topic={hoveredNode.id}
-          relatedNotes={data.nodes.find(n => n.id === hoveredNode.id)?.related_notes || []}
-          position={hoveredNode.position}
-          onNoteClick={(noteId) => console.log(`Note clicked: ${noteId}`)}
-          onMouseEnter={() => {}}
-          onMouseLeave={() => handleNodeHover(null)}
-        />
-      )}
     </group>
   );
 };
@@ -459,14 +440,10 @@ function KnowledgeGraph({ onSelectNote }) {
     return { nodes, links: data.links || [] };
   };
 
-  // 👈 Updated to use new API system
   const fetchKnowledgeGraph = async (force = false) => {
     try {
       setIsLoading(true);
       setError(null);
-      
-      console.log(`${force ? 'Force fetching' : 'Auto-loading'} knowledge graph...`);
-      
       const response = await api.knowledgeGraph.get();
       
       if (!response.ok) {
@@ -474,14 +451,12 @@ function KnowledgeGraph({ onSelectNote }) {
       }
       
       const rawData = await response.json();
-      console.log('Graph data received:', rawData);
       
       if (rawData.nodes && rawData.nodes.length > 0) {
         const processedData = processGraphData(rawData);
         setData(processedData);
         setCacheStatus({ cached: true, fresh: !force });
       } else if (force) {
-        console.log('No cached data found, generating fresh...');
         await handleRefreshGraph();
       } else {
         setData({ nodes: [], links: [] });
@@ -496,12 +471,9 @@ function KnowledgeGraph({ onSelectNote }) {
     }
   };
 
-  // 👈 Updated to use new API system
   const handleRefreshGraph = async () => {
     try {
       setRefreshing(true);
-      console.log('Starting background knowledge graph generation...');
-      
       const response = await api.knowledgeGraph.refresh();
       
       if (!response.ok) {
@@ -509,7 +481,6 @@ function KnowledgeGraph({ onSelectNote }) {
       }
       
       const result = await response.json();
-      console.log('Background generation started:', result);
       
       if (result.generating) {
         setGenerationStatus({ is_generating: true, progress: "starting" });
@@ -530,7 +501,6 @@ function KnowledgeGraph({ onSelectNote }) {
     loadGraph();
   }, []);
 
-  // 👈 Updated to use new API system
   useEffect(() => {
     let statusInterval;
     
@@ -557,104 +527,12 @@ function KnowledgeGraph({ onSelectNote }) {
   }, [generationStatus.is_generating]);
 
   const handleSelectNode = (nodeId) => {
-    console.log(`Selected node: ${nodeId}`);
+    if (onSelectNote) {
+      onSelectNote(nodeId);
+    }
   };
 
-  const calculateNoteRelationships = (topicName, graphData) => {
-    const relationships = [];
-    const processedNotes = new Set();
-    
-    const topicNode = graphData.nodes.find(node => node.topic === topicName || node.label === topicName);
-    if (!topicNode) {
-      console.log('Topic node not found:', topicName);
-      return [];
-    }
-
-    console.log('Found topic node:', topicNode);
-
-    if (topicNode.noteDetails && topicNode.noteDetails.length > 0) {
-      topicNode.noteDetails.forEach(noteDetail => {
-        if (!processedNotes.has(noteDetail.id)) {
-          relationships.push({
-            id: noteDetail.id,
-            name: noteDetail.name,
-            strength: 1.0,
-            relationshipType: 'direct'
-          });
-          processedNotes.add(noteDetail.id);
-        }
-      });
-    } else if (topicNode.noteIds && topicNode.noteIds.length > 0) {
-      topicNode.noteIds.forEach(noteId => {
-        if (!processedNotes.has(noteId)) {
-          relationships.push({
-            id: noteId,
-            name: `Note ${noteId}`,
-            strength: 1.0,
-            relationshipType: 'direct'
-          });
-          processedNotes.add(noteId);
-        }
-      });
-    }
-
-    const connectedLinks = graphData.links.filter(link => 
-      link.source === topicName || link.target === topicName
-    );
-
-    console.log('Connected links for', topicName, ':', connectedLinks);
-
-    connectedLinks.forEach(link => {
-      const connectedTopicName = link.source === topicName ? link.target : link.source;
-      const linkStrength = link.strength || 0.5;
-      
-      const connectedTopicNode = graphData.nodes.find(node => 
-        node.topic === connectedTopicName || node.label === connectedTopicName
-      );
-      
-      if (connectedTopicNode) {
-        console.log('Found connected topic:', connectedTopicName, 'with strength:', linkStrength);
-        
-        if (connectedTopicNode.noteDetails && connectedTopicNode.noteDetails.length > 0) {
-          connectedTopicNode.noteDetails.forEach(noteDetail => {
-            if (!processedNotes.has(noteDetail.id)) {
-              relationships.push({
-                id: noteDetail.id,
-                name: noteDetail.name,
-                strength: linkStrength,
-                relationshipType: 'indirect',
-                viaTopics: [connectedTopicName]
-              });
-              processedNotes.add(noteDetail.id);
-            }
-          });
-        } else if (connectedTopicNode.noteIds && connectedTopicNode.noteIds.length > 0) {
-          connectedTopicNode.noteIds.forEach(noteId => {
-            if (!processedNotes.has(noteId)) {
-              relationships.push({
-                id: noteId,
-                name: `Note ${noteId}`,
-                strength: linkStrength,
-                relationshipType: 'indirect',
-                viaTopics: [connectedTopicName]
-              });
-              processedNotes.add(noteId);
-            }
-          });
-        }
-      }
-    });
-
-    console.log('Final relationships for', topicName, ':', relationships);
-
-    return relationships.sort((a, b) => {
-      if (a.relationshipType === 'direct' && b.relationshipType === 'indirect') return -1;
-      if (a.relationshipType === 'indirect' && b.relationshipType === 'direct') return 1;
-      return b.strength - a.strength;
-    });
-  };
-
-  const handleNodeHover = (topicName, position) => {
+  const handleNodeHover = async (topicName, position) => {
     if (hoverTimeout) {
       clearTimeout(hoverTimeout);
       setHoverTimeout(null);
@@ -662,10 +540,49 @@ function KnowledgeGraph({ onSelectNote }) {
 
     setHoveredNode(topicName);
     setHoverPosition(position);
-    
-    const noteRelationships = calculateNoteRelationships(topicName, data);
-    console.log('Note relationships for', topicName, ':', noteRelationships);
-    setRelatedNotes(noteRelationships);
+
+    const topicNode = data.nodes.find(node => node.topic === topicName || node.label === topicName);
+    if (!topicNode) {
+      setRelatedNotes([]);
+      return;
+    }
+
+    const directNotes = (topicNode.noteDetails || []).map((note) => ({
+      id: note.id,
+      name: note.name,
+      strength: 1.0,
+    }));
+
+    const noteIds = (topicNode.noteDetails || []).map((note) => note.id).length
+      ? (topicNode.noteDetails || []).map((note) => note.id)
+      : (topicNode.noteIds || []);
+
+    const primaryNoteId = noteIds && noteIds.length > 0 ? Number(noteIds[0]) : null;
+    if (!primaryNoteId || Number.isNaN(primaryNoteId)) {
+      setRelatedNotes(directNotes);
+      return;
+    }
+
+    try {
+      const response = await api.embeddings.related(primaryNoteId, 12);
+      if (response.ok) {
+        const payload = await response.json();
+        const related = (payload.results || []).map((note) => ({
+          id: note.id,
+          name: note.name,
+          strength: note.score,
+        }));
+        const merged = new Map();
+        for (const item of directNotes) merged.set(item.id, item);
+        for (const item of related) merged.set(item.id, item);
+        setRelatedNotes(Array.from(merged.values()));
+        return;
+      }
+    } catch {
+      // Ignore and fall back to direct notes.
+    }
+
+    setRelatedNotes(directNotes);
   };
 
   const handleNodeHoverEnd = () => {
@@ -700,8 +617,6 @@ function KnowledgeGraph({ onSelectNote }) {
   };
 
   const handleNoteClick = (noteId) => {
-    console.log(`Switching to note ${noteId}`);
-    
     setHoveredNode(null);
     setRelatedNotes([]);
     
