@@ -42,6 +42,19 @@ class Note(Base):
     # Relationship to filesystem
     file = relationship("FileSystem", backref="notes")
 
+
+class NoteRevision(Base):
+    __tablename__ = "note_revisions"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(Integer, ForeignKey("filesystem.id"), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    content_checksum = Column(String(128), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    file = relationship("FileSystem", backref="revisions")
+
 class Topic(Base):
     __tablename__ = "topics"
     __table_args__ = {'extend_existing': True}
