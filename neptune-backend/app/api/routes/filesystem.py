@@ -23,6 +23,7 @@ router = APIRouter()
 
 class ContentUpdate(BaseModel):
     content: str
+    content_checksum: str | None = None
 
 @router.get("/", response_model=list[FileSystemMeta])
 async def get_file_system(
@@ -148,6 +149,8 @@ async def update_file_content(
         raise HTTPException(status_code=404, detail="File not found")
     if db_item.type != "file":
         raise HTTPException(status_code=400, detail="Cannot set content for non-files")
+    if data.content_checksum and db_item.content_checksum and data.content_checksum != db_item.content_checksum:
+        raise HTTPException(status_code=409, detail="Content checksum mismatch")
     
     # Snapshot current content before update.
     try:
