@@ -12,6 +12,9 @@ from app.schemas.file_system import (
 from pydantic import BaseModel
 from datetime import datetime
 from app.services.note_content import store_note_content, load_note_content
+from app.services.revisions import create_revision
+from app.services.search import index_note
+from app.services.knowledge_graph import invalidate_cache
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,6 +23,7 @@ router = APIRouter()
 
 class ContentUpdate(BaseModel):
     content: str
+    content_checksum: str | None = None
 
 @router.get("/", response_model=list[FileSystemMeta])
 async def get_file_system(
@@ -31,7 +35,11 @@ async def get_file_system(
 ):
     """Get file metadata with pagination."""
     # Only fetch files; folders are currently not supported.
-    query = db.query(FileSystem).filter(FileSystem.type == "file")
+    query = (
+        db.query(FileSystem)
+        .filter(FileSystem.type == "file")
+        .filter(FileSystem.deleted_at.is_(None))
+    )
     if owner_id:
         query = query.filter(FileSystem.owner_id == owner_id)
     query = query.order_by(FileSystem.updated_at.desc()).offset(offset).limit(limit)
@@ -49,6 +57,11 @@ async def get_file_system(
         db.add(default_note)
         db.commit()
         db.refresh(default_note)
+        index_note(db, default_note, default_note.content)
+        try:
+            invalidate_cache()
+        except Exception:
+            pass
         return [FileSystemMeta(
             id=default_note.id,
             owner_id=default_note.owner_id,
@@ -97,6 +110,11 @@ async def create_file_system_item(item: FileSystemCreate, db: Session = Depends(
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
+    index_note(db, db_item, db_item.content)
+    try:
+        invalidate_cache()
+    except Exception:
+        pass
     
     return FileSystemItem(
         id=db_item.id,
@@ -121,12 +139,28 @@ async def update_file_content(
     """Update file content."""
     content = data.content
         
-    db_item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
+    db_item = (
+        db.query(FileSystem)
+        .filter(FileSystem.id == item_id)
+        .filter(FileSystem.deleted_at.is_(None))
+        .first()
+    )
     if not db_item:
         raise HTTPException(status_code=404, detail="File not found")
     if db_item.type != "file":
         raise HTTPException(status_code=400, detail="Cannot set content for non-files")
+    if data.content_checksum and db_item.content_checksum and data.content_checksum != db_item.content_checksum:
+        raise HTTPException(status_code=409, detail="Content checksum mismatch")
     
+    # Snapshot current content before update.
+    try:
+        current = load_note_content(db_item)
+        if current.content is not None and current.content != content:
+            create_revision(db, db_item, current.content, current.storage_checksum)
+    except Exception:
+        # Best-effort revisions; don't block updates.
+        pass
+
     # Persist content via storage service.
     try:
         store_note_content(db_item, content)
@@ -139,6 +173,11 @@ async def update_file_content(
     db_item.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_item)
+    index_note(db, db_item, content)
+    try:
+        invalidate_cache()
+    except Exception:
+        pass
     
     return FileSystemItem(
         id=db_item.id,
@@ -157,7 +196,12 @@ async def update_file_content(
 @router.get("/{item_id}", response_model=FileSystemItem)
 async def get_file_by_id(item_id: int, db: Session = Depends(get_db)):
     """Get a specific file by ID"""
-    item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
+    item = (
+        db.query(FileSystem)
+        .filter(FileSystem.id == item_id)
+        .filter(FileSystem.deleted_at.is_(None))
+        .first()
+    )
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     try:
@@ -183,7 +227,12 @@ async def get_file_by_id(item_id: int, db: Session = Depends(get_db)):
 @router.get("/{item_id}/content", response_model=FileContentResponse)
 async def get_file_content(item_id: int, db: Session = Depends(get_db)):
     """Get file content only."""
-    item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
+    item = (
+        db.query(FileSystem)
+        .filter(FileSystem.id == item_id)
+        .filter(FileSystem.deleted_at.is_(None))
+        .first()
+    )
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     try:
@@ -206,18 +255,44 @@ async def delete_file_system_item(
     item_id: int,
     db: Session = Depends(get_db)
 ):
-    """Delete a file."""
-    # Find the item in the database
+    """Soft-delete a file."""
+    db_item = (
+        db.query(FileSystem)
+        .filter(FileSystem.id == item_id)
+        .filter(FileSystem.deleted_at.is_(None))
+        .first()
+    )
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    if db_item.type != "file":
+        raise HTTPException(status_code=400, detail="Only files can be deleted")
+
+    db_item.deleted_at = datetime.utcnow()
+    db.commit()
+    try:
+        invalidate_cache()
+    except Exception:
+        pass
+    
+    return {"success": True, "message": f"File '{db_item.name}' deleted successfully"}
+
+
+@router.post("/{item_id}/restore", response_model=DeleteResponse)
+async def restore_file_system_item(
+    item_id: int,
+    db: Session = Depends(get_db)
+):
+    """Restore a soft-deleted file."""
     db_item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Item not found")
-    
-    # Only allow file deletion since folders are not supported.
-    if db_item.type != "file":
-        raise HTTPException(status_code=400, detail="Only files can be deleted")
-    
-    # Delete the item instantly
-    db.delete(db_item)
+    if db_item.deleted_at is None:
+        return {"success": True, "message": f"File '{db_item.name}' is already active"}
+    db_item.deleted_at = None
     db.commit()
-    
-    return {"success": True, "message": f"File '{db_item.name}' deleted successfully"}
+    try:
+        invalidate_cache()
+    except Exception:
+        pass
+    return {"success": True, "message": f"File '{db_item.name}' restored successfully"}

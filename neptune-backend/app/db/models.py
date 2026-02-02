@@ -24,6 +24,7 @@ class FileSystem(Base):
     content_checksum = Column(String(128), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     
     # Self-referential relationship for folder structure
     parent = relationship("FileSystem", remote_side=[id], backref="children")
@@ -41,6 +42,19 @@ class Note(Base):
     
     # Relationship to filesystem
     file = relationship("FileSystem", backref="notes")
+
+
+class NoteRevision(Base):
+    __tablename__ = "note_revisions"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(Integer, ForeignKey("filesystem.id"), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    content_checksum = Column(String(128), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    file = relationship("FileSystem", backref="revisions")
 
 class Topic(Base):
     __tablename__ = "topics"

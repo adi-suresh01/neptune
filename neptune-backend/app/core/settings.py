@@ -18,6 +18,11 @@ class Settings:
     app_mode: str = os.getenv("NEPTUNE_MODE", "server").lower()
     host: str = os.getenv("HOST", "127.0.0.1")
     port: int = int(os.getenv("PORT", "8000"))
+    db_backend: str = os.getenv("DB_BACKEND", "auto").lower()
+    desktop_data_dir: str = os.getenv(
+        "NEPTUNE_DESKTOP_DIR",
+        os.path.join(os.path.expanduser("~"), ".neptune"),
+    )
 
     cors_allow_all: bool = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
     cors_origins: List[str] = field(default_factory=lambda: _split_csv(os.getenv("CORS_ORIGINS", "")))
@@ -53,6 +58,7 @@ class Settings:
     min_note_chars: int = int(os.getenv("MIN_NOTE_CHARS", "1"))
     kg_min_strength: float = float(os.getenv("KG_MIN_STRENGTH", "0.2"))
     kg_max_edges: int = int(os.getenv("KG_MAX_EDGES", "500"))
+    max_note_revisions: int = int(os.getenv("MAX_NOTE_REVISIONS", "20"))
 
     s3_endpoint: str | None = os.getenv("S3_ENDPOINT")
     s3_access_key: str | None = os.getenv("S3_ACCESS_KEY")
@@ -67,6 +73,9 @@ class Settings:
     s3_max_retries: int = int(os.getenv("S3_MAX_RETRIES", "2"))
 
     vector_backend: str = os.getenv("VECTOR_BACKEND", "none").lower()
+    search_mode: str = os.getenv("SEARCH_MODE", "auto").lower()
+    search_min_query_len: int = int(os.getenv("SEARCH_MIN_QUERY_LEN", "2"))
+    search_max_results: int = int(os.getenv("SEARCH_MAX_RESULTS", "50"))
 
     def resolved_cors_origins(self) -> List[str]:
         if self.environment == "production" and self.cors_allow_all:

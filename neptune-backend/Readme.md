@@ -57,6 +57,34 @@
     http://localhost:8000/docs
     ```
 
+## Desktop Mode (SQLite)
+
+- Use SQLite for zero-config local storage:
+  ```bash
+  export NEPTUNE_MODE=desktop
+  export DB_BACKEND=sqlite
+  export NEPTUNE_DESKTOP_DIR=~/.neptune
+  ```
+- The database will be created at `~/.neptune/neptune.db`.
+
+## Search
+
+- SQLite mode uses FTS5 by default.
+- Configuration:
+  - `SEARCH_MODE=auto|fts|fallback`
+  - `SEARCH_MIN_QUERY_LEN` (default: 2)
+  - `SEARCH_MAX_RESULTS` (default: 50)
+- Endpoint:
+  - `GET /api/search?q=your+query`
+
+## Revisions
+
+- Note revisions are saved automatically on update.
+- Configuration:
+  - `MAX_NOTE_REVISIONS` (default: 20)
+- Endpoint:
+  - `GET /api/revisions/{file_id}`
+
 ## Storage and Filesystem Design
 
 - The filesystem API is metadata-first for scale.
