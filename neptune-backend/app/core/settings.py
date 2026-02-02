@@ -18,6 +18,11 @@ class Settings:
     app_mode: str = os.getenv("NEPTUNE_MODE", "server").lower()
     host: str = os.getenv("HOST", "127.0.0.1")
     port: int = int(os.getenv("PORT", "8000"))
+    db_backend: str = os.getenv("DB_BACKEND", "auto").lower()
+    desktop_data_dir: str = os.getenv(
+        "NEPTUNE_DESKTOP_DIR",
+        os.path.join(os.path.expanduser("~"), ".neptune"),
+    )
 
     cors_allow_all: bool = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
     cors_origins: List[str] = field(default_factory=lambda: _split_csv(os.getenv("CORS_ORIGINS", "")))
