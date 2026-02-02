@@ -239,8 +239,7 @@ async def delete_file_system_item(
     item_id: int,
     db: Session = Depends(get_db)
 ):
-    """Delete a file."""
-    # Find the item in the database
+    """Soft-delete a file."""
     db_item = (
         db.query(FileSystem)
         .filter(FileSystem.id == item_id)
@@ -249,13 +248,27 @@ async def delete_file_system_item(
     )
     if not db_item:
         raise HTTPException(status_code=404, detail="Item not found")
-    
-    # Only allow file deletion since folders are not supported.
+
     if db_item.type != "file":
         raise HTTPException(status_code=400, detail="Only files can be deleted")
-    
-    # Delete the item instantly
-    db.delete(db_item)
+
+    db_item.deleted_at = datetime.utcnow()
     db.commit()
     
     return {"success": True, "message": f"File '{db_item.name}' deleted successfully"}
+
+
+@router.post("/{item_id}/restore", response_model=DeleteResponse)
+async def restore_file_system_item(
+    item_id: int,
+    db: Session = Depends(get_db)
+):
+    """Restore a soft-deleted file."""
+    db_item = db.query(FileSystem).filter(FileSystem.id == item_id).first()
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if db_item.deleted_at is None:
+        return {"success": True, "message": f"File '{db_item.name}' is already active"}
+    db_item.deleted_at = None
+    db.commit()
+    return {"success": True, "message": f"File '{db_item.name}' restored successfully"}
