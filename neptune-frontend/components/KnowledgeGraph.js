@@ -414,6 +414,7 @@ function KnowledgeGraph({ onSelectNote }) {
   const [relatedNotes, setRelatedNotes] = useState([]);
   const [hoverTimeout, setHoverTimeout] = useState(null);
   const [isPopupHovered, setIsPopupHovered] = useState(false);
+  const lastHoveredTopicRef = useRef(null);
 
   const processGraphData = (data) => {
     if (!data.nodes || data.nodes.length === 0) {
@@ -533,6 +534,13 @@ function KnowledgeGraph({ onSelectNote }) {
       clearTimeout(hoverTimeout);
       setHoverTimeout(null);
     }
+
+    if (lastHoveredTopicRef.current === topicName) {
+      setHoveredNode(topicName);
+      setHoverPosition(position);
+      return;
+    }
+    lastHoveredTopicRef.current = topicName;
 
     setHoveredNode(topicName);
     setHoverPosition(position);
