@@ -602,6 +602,7 @@ function KnowledgeGraph({ onSelectNote }) {
         if (!isPopupHovered) {
           setHoveredNode(null);
           setRelatedNotes([]);
+          lastHoveredTopicRef.current = null;
         }
       }, 500);
       
