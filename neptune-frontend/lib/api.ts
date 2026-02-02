@@ -167,12 +167,13 @@ export const api = {
   
   filesystem: {
     list: (params?: { owner_id?: string; limit?: number; offset?: number }) => {
-      const query = params
-        ? `?${new URLSearchParams(
-            Object.entries(params).filter(([, v]) => v !== undefined) as Array<[string, string]>
-          ).toString()}`
-        : '';
-      return apiRequest(`/api/filesystem/${query}`);
+      if (!params) return apiRequest('/api/filesystem/');
+      const search = new URLSearchParams();
+      if (params.owner_id) search.set('owner_id', params.owner_id);
+      if (params.limit !== undefined) search.set('limit', String(params.limit));
+      if (params.offset !== undefined) search.set('offset', String(params.offset));
+      const suffix = search.toString() ? `?${search.toString()}` : '';
+      return apiRequest(`/api/filesystem/${suffix}`);
     },
     create: (data: { name: string; type: string; parent_id?: number | null; owner_id?: string | null }) =>
       apiRequest('/api/filesystem/', { method: 'POST', body: JSON.stringify(data) }),
