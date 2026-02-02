@@ -7,6 +7,7 @@ from app.core.settings import settings
 import os
 from app.services.llm_service import llm_service
 from app.services.storage import storage_client
+from app.services.search import fts_available
 
 router = APIRouter()
 
@@ -34,9 +35,17 @@ async def readiness_check():
 @router.get("/status")
 async def system_status():
     storage_status = storage_client.healthcheck()
+    db = SessionLocal()
+    try:
+        fts_ok = fts_available(db)
+        db_dialect = db.bind.dialect.name if db.bind else "unknown"
+    finally:
+        db.close()
     return {
         "environment": settings.environment,
         "app_mode": settings.app_mode,
+        "db_backend": settings.db_backend,
+        "db_dialect": db_dialect,
         "storage_mode": settings.storage_mode,
         "host": settings.host,
         "port": settings.port,
@@ -64,6 +73,10 @@ async def system_status():
         "cache": {
             "topics_path": settings.kg_cache_path,
             "prompt_version": settings.llm_prompt_version,
+        },
+        "search": {
+            "mode": settings.search_mode,
+            "fts_available": fts_ok,
         },
     }
 
