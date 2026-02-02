@@ -97,7 +97,7 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
       
       <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px', flexShrink: 0 }}>
         {relatedNotes.length} note{relatedNotes.length !== 1 ? 's' : ''} found
-        {relatedNotes.length > 5 && <span style={{ color: '#60a5fa' }}> • Scroll to see all</span>}
+        {relatedNotes.length > 5 && <span style={{ color: '#60a5fa' }}> - Scroll to see all</span>}
       </div>
       
       <div style={scrollableContentStyle}>
@@ -137,7 +137,7 @@ const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, 
           marginTop: '4px',
           flexShrink: 0 
         }}>
-          ↕ Scroll for more
+          Scroll for more
         </div>
       )}
     </div>

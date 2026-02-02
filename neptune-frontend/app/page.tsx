@@ -92,7 +92,6 @@ const Home = () => {
 
     const id = generateRandomId();
     try {
-      // 👈 Use the new API system instead of hardcoded fetch
       const res = await api.filesystem.create({
         name: file,
         type: "file",
@@ -116,7 +115,6 @@ const Home = () => {
     if (!confirmDelete) return;
 
     try {
-      // 👈 Use the new API system instead of hardcoded fetch
       const res = await api.filesystem.delete(fileId);
 
       if (!res.ok) throw new Error("Failed to delete file");
