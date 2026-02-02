@@ -72,8 +72,14 @@ class Settings:
     s3_read_timeout_seconds: int = int(os.getenv("S3_READ_TIMEOUT_SECONDS", "5"))
     s3_max_retries: int = int(os.getenv("S3_MAX_RETRIES", "2"))
 
-    vector_backend: str = os.getenv("VECTOR_BACKEND", "none").lower()
-    search_mode: str = os.getenv("SEARCH_MODE", "auto").lower()
+    vector_backend: str = os.getenv("VECTOR_BACKEND", "faiss").lower()
+    vector_index_path: str = os.getenv(
+        "VECTOR_INDEX_PATH",
+        os.path.join(os.path.expanduser("~"), ".neptune", "vector.index"),
+    )
+    embedding_model: str = os.getenv("OLLAMA_EMBED_MODEL", os.getenv("OLLAMA_MODEL", "nomic-embed-text"))
+    embedding_max_chars: int = int(os.getenv("EMBEDDING_MAX_CHARS", "8000"))
+    search_mode: str = os.getenv("SEARCH_MODE", "semantic").lower()
     search_min_query_len: int = int(os.getenv("SEARCH_MIN_QUERY_LEN", "2"))
     search_max_results: int = int(os.getenv("SEARCH_MAX_RESULTS", "50"))
 

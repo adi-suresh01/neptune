@@ -43,7 +43,57 @@ def find_topic_relationships(
     logger.info("Found %s relationships between topics", len(edges))
     return edges
 
-def create_topic_graph(topics_data: List[Dict[str, Any]]) -> nx.Graph:
+
+def find_topic_relationships_embeddings(
+    topic_note_map: Dict[str, set[str]],
+    note_embeddings: Dict[int, List[float]],
+) -> List[Tuple[str, str, float]]:
+    if len(topic_note_map) < 2:
+        return []
+
+    topic_vectors: Dict[str, List[float]] = {}
+    for topic, note_ids in topic_note_map.items():
+        vectors = []
+        for note_id_str in note_ids:
+            try:
+                note_id = int(note_id_str)
+            except (ValueError, TypeError):
+                continue
+            vec = note_embeddings.get(note_id)
+            if vec:
+                vectors.append(vec)
+        if not vectors:
+            continue
+        dim = len(vectors[0])
+        avg = [0.0] * dim
+        for vec in vectors:
+            for i, val in enumerate(vec):
+                avg[i] += float(val)
+        avg = [val / len(vectors) for val in avg]
+        topic_vectors[topic] = avg
+
+    if len(topic_vectors) < 2:
+        return []
+
+    def _norm(vec: List[float]) -> float:
+        return sum(v * v for v in vec) ** 0.5 or 1.0
+
+    edges = []
+    topics = list(topic_vectors.keys())
+    for a, b in itertools.combinations(topics, 2):
+        va = topic_vectors[a]
+        vb = topic_vectors[b]
+        denom = _norm(va) * _norm(vb)
+        score = sum(x * y for x, y in zip(va, vb)) / denom
+        edges.append((a, b, float(score)))
+
+    logger.info("Found %s embedding-based relationships between topics", len(edges))
+    return edges
+
+def create_topic_graph(
+    topics_data: List[Dict[str, Any]],
+    note_embeddings: Dict[int, List[float]] | None = None,
+) -> nx.Graph:
     """
     Create a NetworkX graph from topic extraction results.
     """
@@ -66,7 +116,10 @@ def create_topic_graph(topics_data: List[Dict[str, Any]]) -> nx.Graph:
         )
     
     # Find and add relationships between topics
-    topic_relationships = find_topic_relationships(topic_note_map)
+    if note_embeddings:
+        topic_relationships = find_topic_relationships_embeddings(topic_note_map, note_embeddings)
+    else:
+        topic_relationships = find_topic_relationships(topic_note_map)
     filtered = [
         (t1, t2, s) for t1, t2, s in topic_relationships if s >= settings.kg_min_strength
     ]
@@ -87,7 +140,12 @@ def graph_to_frontend_format(G: nx.Graph) -> Dict:
     
     db = SessionLocal()
     try:
-        notes = db.query(FileSystem).filter(FileSystem.type == "file").all()
+        notes = (
+            db.query(FileSystem)
+            .filter(FileSystem.type == "file")
+            .filter(FileSystem.deleted_at.is_(None))
+            .all()
+        )
         note_names = {note.id: note.name for note in notes}
     except Exception as e:
         logger.warning("Error fetching note names: %s", e)

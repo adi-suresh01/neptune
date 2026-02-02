@@ -13,6 +13,7 @@ from app.db.database import SessionLocal
 from app.core.settings import settings
 from app.services.topic_cache import topic_cache
 from app.services.note_content import load_note_content
+from app.services.embeddings import load_embeddings_map
 
 logger = logging.getLogger(__name__)
 # Cache for the latest graph data
@@ -191,7 +192,11 @@ def generate_knowledge_graph_background():
             generation_status["last_heartbeat"] = datetime.now().isoformat()
             
             # Create knowledge graph - SLOW OLLAMA CALLS HAPPEN HERE
-            graph = create_topic_graph(topics_data)
+            note_ids = []
+            for item in topics_data:
+                note_ids.extend([int(n) for n in item.get("note_ids", []) if str(n).isdigit()])
+            embeddings_map = load_embeddings_map(db, list(set(note_ids)))
+            graph = create_topic_graph(topics_data, note_embeddings=embeddings_map)
             graph_data = graph_to_frontend_format(graph)
             
             # Cache the result
