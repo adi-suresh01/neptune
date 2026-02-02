@@ -14,7 +14,7 @@ export interface FileSystemItem {
   id: number;
   name: string;
   type: string;
-  parent_id: string | null;
+  parent_id: number | null;
   content?: string;
   children?: FileSystemItem[];
 }
@@ -45,7 +45,7 @@ const Home = () => {
   // Check backend health on startup
   useEffect(() => {
     let attempts = 0;
-    const maxAttempts = 15; // Increased attempts
+    const maxAttempts = 15;
     
     const checkBackend = async () => {
       attempts++;
