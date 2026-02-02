@@ -7,6 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.settings import settings
+from app.services.embeddings import embedding_service
+from app.services.vector_index_faiss import load_index
 from app.db.models import FileSystem
 
 
@@ -125,6 +127,36 @@ def search_notes(
     if len(trimmed) < settings.search_min_query_len:
         return []
     limit = min(limit or settings.search_max_results, settings.search_max_results)
+
+    if settings.search_mode == "semantic":
+        try:
+            result = embedding_service.embed(trimmed)
+            index = load_index(result.dim)
+            matches = index.query(result.vector, top_k=limit)
+            if matches:
+                file_ids = [item_id for item_id, _ in matches]
+                score_map = {item_id: score for item_id, score in matches}
+                query_obj = (
+                    db.query(FileSystem)
+                    .filter(FileSystem.id.in_(file_ids))
+                    .filter(FileSystem.deleted_at.is_(None))
+                )
+                if owner_id:
+                    query_obj = query_obj.filter(FileSystem.owner_id == owner_id)
+                results = []
+                for item in query_obj.all():
+                    results.append(
+                        SearchResult(
+                            id=item.id,
+                            name=item.name,
+                            content_preview=_preview(item.content),
+                            score=score_map.get(item.id),
+                            updated_at=item.updated_at.isoformat() if item.updated_at else None,
+                        )
+                    )
+                return results
+        except Exception:
+            pass
 
     if _is_sqlite(db) and settings.search_mode in {"auto", "fts"} and fts_available(db):
         rows = db.execute(

@@ -79,7 +79,7 @@ class Settings:
     )
     embedding_model: str = os.getenv("OLLAMA_EMBED_MODEL", os.getenv("OLLAMA_MODEL", "nomic-embed-text"))
     embedding_max_chars: int = int(os.getenv("EMBEDDING_MAX_CHARS", "8000"))
-    search_mode: str = os.getenv("SEARCH_MODE", "auto").lower()
+    search_mode: str = os.getenv("SEARCH_MODE", "semantic").lower()
     search_min_query_len: int = int(os.getenv("SEARCH_MIN_QUERY_LEN", "2"))
     search_max_results: int = int(os.getenv("SEARCH_MAX_RESULTS", "50"))
 
