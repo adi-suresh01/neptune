@@ -12,6 +12,7 @@ from app.schemas.file_system import (
 from pydantic import BaseModel
 from datetime import datetime
 from app.services.note_content import store_note_content, load_note_content
+from app.services.revisions import create_revision
 from app.services.search import index_note
 import logging
 
@@ -130,6 +131,15 @@ async def update_file_content(
     if db_item.type != "file":
         raise HTTPException(status_code=400, detail="Cannot set content for non-files")
     
+    # Snapshot current content before update.
+    try:
+        current = load_note_content(db_item)
+        if current.content is not None and current.content != content:
+            create_revision(db, db_item, current.content, current.storage_checksum)
+    except Exception:
+        # Best-effort revisions; don't block updates.
+        pass
+
     # Persist content via storage service.
     try:
         store_note_content(db_item, content)
