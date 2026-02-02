@@ -56,6 +56,20 @@ class NoteRevision(Base):
 
     file = relationship("FileSystem", backref="revisions")
 
+
+class NoteEmbedding(Base):
+    __tablename__ = "note_embeddings"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(Integer, ForeignKey("filesystem.id"), nullable=False, index=True, unique=True)
+    vector = Column(Text, nullable=False)
+    dim = Column(Integer, nullable=False)
+    content_checksum = Column(String(128), nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    file = relationship("FileSystem", backref="embedding")
+
 class Topic(Base):
     __tablename__ = "topics"
     __table_args__ = {'extend_existing': True}
