@@ -8,49 +8,75 @@ from app.db.models import Base
 
 logger = logging.getLogger(__name__)
 
+def _sqlite_url(sqlite_path: str) -> str:
+    sqlite_path = os.path.abspath(sqlite_path)
+    return f"sqlite:///{sqlite_path}"
+
+
+def _desktop_sqlite_url() -> str:
+    os.makedirs(settings.desktop_data_dir, exist_ok=True)
+    sqlite_path = os.path.join(settings.desktop_data_dir, "neptune.db")
+    logger.info("Desktop app mode: Using SQLite")
+    logger.info("Database location: %s", sqlite_path)
+    return _sqlite_url(sqlite_path)
+
+
+def _postgres_url() -> str | None:
+    pg_url = settings.database_url
+    if not pg_url:
+        return None
+    if not pg_url.startswith("postgresql://"):
+        logger.warning("Unsupported DATABASE_URL format: %s", pg_url)
+        return None
+    return pg_url
+
+
+def _test_postgres(pg_url: str) -> bool:
+    try:
+        test_engine = create_engine(
+            pg_url,
+            connect_args={"connect_timeout": settings.db_connect_timeout_seconds},
+            pool_pre_ping=settings.db_pool_pre_ping,
+        )
+        test_engine.connect().close()
+        return True
+    except Exception as e:
+        logger.warning("PostgreSQL connection failed: %s", e)
+        return False
+
+
 def get_database_url():
     """
     Smart database selection:
-    - Development: PostgreSQL (your current setup)
-    - Desktop App: SQLite (bundled, zero-config)
+    - Desktop app: SQLite (zero-config, local)
+    - Server: PostgreSQL preferred, SQLite fallback when configured
     """
-    
-    # Check if we're in a PyInstaller bundle (desktop app)
-    if getattr(sys, 'frozen', False):
-        # Desktop app mode - use SQLite for zero-config reliability
-        db_dir = os.path.join(os.path.expanduser("~"), ".neptune")
-        os.makedirs(db_dir, exist_ok=True)
-        sqlite_path = os.path.join(db_dir, 'neptune.db')
-        sqlite_url = f"sqlite:///{sqlite_path}"
-        
-        logger.info("Desktop app mode: Using SQLite")
-        logger.info("Database location: %s", sqlite_path)
-        return sqlite_url
-    
-    else:
-        # Development mode - use PostgreSQL from .env
-        pg_url = settings.database_url
-        if pg_url and pg_url.startswith("postgresql://"):
-            try:
-                # Test PostgreSQL connection
-                test_engine = create_engine(
-                    pg_url,
-                    connect_args={"connect_timeout": settings.db_connect_timeout_seconds},
-                    pool_pre_ping=settings.db_pool_pre_ping,
-                )
-                test_engine.connect().close()
-                logger.info("Development mode: Using PostgreSQL")
-                logger.info("Database: %s", pg_url.split('@')[1] if '@' in pg_url else pg_url)
-                return pg_url
-            except Exception as e:
-                logger.warning("PostgreSQL connection failed: %s", e)
-                logger.info("Falling back to SQLite for development...")
-        
-        # Fallback to SQLite even in development if PostgreSQL fails
+    if settings.db_backend == "sqlite":
+        if settings.app_mode == "desktop" or getattr(sys, "frozen", False):
+            return _desktop_sqlite_url()
         fallback_path = os.path.join(os.getcwd(), "neptune_dev.db")
-        fallback_url = f"sqlite:///{fallback_path}"
-        logger.info("Development fallback: Using SQLite at %s", fallback_path)
-        return fallback_url
+        logger.info("SQLite forced: Using %s", fallback_path)
+        return _sqlite_url(fallback_path)
+
+    if settings.db_backend == "postgres":
+        pg_url = _postgres_url()
+        if not pg_url:
+            raise RuntimeError("DB_BACKEND=postgres but DATABASE_URL is missing or invalid")
+        logger.info("PostgreSQL forced: Using configured DATABASE_URL")
+        return pg_url
+
+    # auto
+    if settings.app_mode == "desktop" or getattr(sys, "frozen", False):
+        return _desktop_sqlite_url()
+
+    pg_url = _postgres_url()
+    if pg_url and _test_postgres(pg_url):
+        logger.info("Server mode: Using PostgreSQL")
+        return pg_url
+
+    fallback_path = os.path.join(os.getcwd(), "neptune_dev.db")
+    logger.info("Server fallback: Using SQLite at %s", fallback_path)
+    return _sqlite_url(fallback_path)
 
 # Get the appropriate database URL
 DATABASE_URL = get_database_url()
