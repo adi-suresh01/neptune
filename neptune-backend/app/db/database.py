@@ -125,4 +125,14 @@ def init_db():
     """
     logger.info("Creating database tables...")
     Base.metadata.create_all(bind=engine)
+    try:
+        from app.services.search import ensure_fts
+        db = SessionLocal()
+        try:
+            ensure_fts(db)
+            db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning("FTS setup skipped: %s", e)
     logger.info("Database tables created successfully")
