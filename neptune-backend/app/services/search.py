@@ -94,11 +94,8 @@ def index_note(db: Session, item: FileSystem, content: str | None) -> None:
     db.execute(
         text(
             """
-            INSERT INTO filesystem_fts(rowid, name, content, file_id)
-            VALUES (:id, :name, :content, :id)
-            ON CONFLICT(rowid) DO UPDATE SET
-              name = excluded.name,
-              content = excluded.content;
+            INSERT OR REPLACE INTO filesystem_fts(rowid, name, content, file_id)
+            VALUES (:id, :name, :content, :id);
             """
         ),
         {

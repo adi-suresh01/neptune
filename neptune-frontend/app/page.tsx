@@ -215,55 +215,36 @@ const Home = () => {
     
   };
 
-  // Show backend loading state
-  if (isCheckingBackend) {
-    return (
-      <div className="flex h-screen bg-gray-900 text-gray-100 pt-7">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center space-y-4">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-            <h2 className="text-xl font-semibold text-white">Starting Neptune...</h2>
-            <p className="text-gray-400">Please wait while the backend initializes</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show backend error state
-  if (backendError) {
-    return (
-      <div className="flex h-screen bg-gray-900 text-gray-100 pt-7">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center space-y-4 max-w-md text-center">
-            <AlertTriangle className="w-12 h-12 text-red-400" />
-            <h2 className="text-xl font-semibold text-red-400">Backend Connection Failed</h2>
-            <p className="text-gray-400">{backendError}</p>
-            <div className="flex space-x-2">
-              <Button 
-                onClick={() => window.location.reload()} 
-                variant="outline"
-                className="text-blue-400 border-blue-400 hover:bg-blue-400 hover:text-white"
-              >
-                Retry
-              </Button>
-              <Button 
-                onClick={() => setBackendError(null)} 
-                variant="outline"
-                className="text-green-400 border-green-400 hover:bg-green-400 hover:text-white"
-              >
-                Force Continue
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Main app UI (only shows when backend is ready)
   return (
     <div className="flex h-screen bg-gray-900 text-gray-100 pt-7">
+      {(isCheckingBackend || backendError) && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gray-900/95 border-b border-gray-800">
+          <div className="max-w-screen-2xl mx-auto px-4 py-2 flex items-center gap-3 text-sm">
+            {backendError ? (
+              <>
+                <AlertTriangle className="w-4 h-4 text-red-400" />
+                <span className="text-red-400">Backend unavailable</span>
+                <span className="text-gray-400">{backendError}</span>
+                <Button
+                  onClick={() => window.location.reload()}
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                >
+                  Retry
+                </Button>
+              </>
+            ) : (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                <span className="text-blue-400">Starting backend...</span>
+                <span className="text-gray-400">The app is usable while it warms up.</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {/* Sidebar */}
       <div className="w-70 border-r border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-700">

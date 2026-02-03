@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { useState, useEffect } from "react";
-import { Loader2, Folder, Save, Check, AlertCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Loader2, Folder, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { api } from "@/lib/api";
@@ -16,6 +16,7 @@ const NotesDisplay = ({ selectedItem }) => {
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const saveInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!selectedItem) {
@@ -74,20 +75,24 @@ const NotesDisplay = ({ selectedItem }) => {
   };
 
   const handleSave = async () => {
-    if (!selectedItem || !hasChanges) return;
+    if (!selectedItem || !hasChanges || saveInFlightRef.current) return;
 
     try {
+      saveInFlightRef.current = true;
       setStatus("saving");
-      const res = await api.filesystem.update(selectedItem.id, { 
-        content, 
-        content_checksum: contentChecksum 
+      let res = await api.filesystem.update(selectedItem.id, {
+        content,
+        content_checksum: contentChecksum,
       });
 
+      if (res.status === 409) {
+        // Last-write-wins for local edits to keep the experience seamless.
+        res = await api.filesystem.update(selectedItem.id, {
+          content,
+        });
+      }
+
       if (!res.ok) {
-        if (res.status === 409) {
-          setStatus("conflict");
-          return;
-        }
         throw new Error("Failed to save note");
       }
 
@@ -105,8 +110,18 @@ const NotesDisplay = ({ selectedItem }) => {
     } catch (err) {
       console.error("Error saving note:", err);
       setStatus("error");
+    } finally {
+      saveInFlightRef.current = false;
     }
   };
+
+  useEffect(() => {
+    if (!hasChanges || !selectedItem) return;
+    const timeout = setTimeout(() => {
+      handleSave();
+    }, 350);
+    return () => clearTimeout(timeout);
+  }, [hasChanges, content, selectedItem]);
 
   const renderStatusIndicator = () => {
     if (loading) {
@@ -140,27 +155,7 @@ const NotesDisplay = ({ selectedItem }) => {
             <span>Error</span>
           </div>
         );
-      case "conflict":
-        return (
-          <div className="flex items-center text-yellow-500">
-            <AlertCircle className="w-3 h-3 mr-2" />
-            <span>Out of date</span>
-          </div>
-        );
       default:
-        if (selectedItem?.type === "file") {
-          return (
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={!hasChanges || status === "saving"}
-              className="flex items-center"
-            >
-              <Save className="w-3 h-3 mr-2" />
-              Save
-            </Button>
-          );
-        }
         return null;
     }
   };
@@ -217,11 +212,6 @@ const NotesDisplay = ({ selectedItem }) => {
           {hasChanges && (
             <div className="mt-2 text-xs text-gray-400">
               You have unsaved changes
-            </div>
-          )}
-          {status === "conflict" && (
-            <div className="mt-2 text-xs text-yellow-400">
-              This note changed elsewhere. Reload to get the latest version.
             </div>
           )}
         </div>

@@ -31,6 +31,16 @@ def configure_logging() -> None:
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     json_logs = os.getenv("LOG_JSON", "false").lower() == "true"
 
+    old_factory = logging.getLogRecordFactory()
+
+    def record_factory(*args, **kwargs):
+        record = old_factory(*args, **kwargs)
+        if not hasattr(record, "request_id"):
+            record.request_id = request_id_ctx.get("-")
+        return record
+
+    logging.setLogRecordFactory(record_factory)
+
     handler = logging.StreamHandler()
     if json_logs:
         handler.setFormatter(JsonFormatter())
@@ -43,4 +53,4 @@ def configure_logging() -> None:
     root = logging.getLogger()
     root.setLevel(log_level)
     root.handlers = [handler]
-    root.addFilter(RequestIdFilter())
+    handler.addFilter(RequestIdFilter())

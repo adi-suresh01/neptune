@@ -467,6 +467,7 @@ function KnowledgeGraph({ onSelectNote }) {
     } catch (err) {
       console.error("Error fetching knowledge graph:", err);
       setError(err instanceof Error ? err.message : "Failed to load knowledge graph");
+      setData({ nodes: [], links: [] });
     } finally {
       setIsLoading(false);
     }
@@ -644,29 +645,6 @@ function KnowledgeGraph({ onSelectNote }) {
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
           <span className="text-blue-400">Loading your knowledge graph...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-[#050a1c] text-red-400">
-        <p className="mb-4">Error loading knowledge graph: {error}</p>
-        <div className="space-x-4">
-          <button 
-            className="px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800 transition"
-            onClick={() => fetchKnowledgeGraph(false)}
-          >
-            Retry
-          </button>
-          <button 
-            className="px-4 py-2 bg-green-900 text-white rounded hover:bg-green-800 transition"
-            onClick={handleRefreshGraph}
-          >
-            Force Refresh
-          </button>
         </div>
       </div>
     );

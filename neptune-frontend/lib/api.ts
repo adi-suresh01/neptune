@@ -107,22 +107,32 @@ export const apiRequest = async (
       
       const url = `${currentBaseUrl}${endpoint}`;
       
-      const response = await fetchWithTimeout(url, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          ...options.headers,
+      const baseHeaders: Record<string, string> = {
+        Accept: 'application/json',
+      };
+      const hasBody = options.body !== undefined && options.body !== null;
+      if (hasBody) {
+        baseHeaders['Content-Type'] = 'application/json';
+      }
+
+      const response = await fetchWithTimeout(
+        url,
+        {
+          ...options,
+          headers: {
+            ...baseHeaders,
+            ...options.headers,
+          },
         },
-      }, isProduction ? 12000 : 6000);
+        isProduction ? 12000 : 6000
+      );
       
       if (response.ok) {
         return response;
       }
       
       if (response.status >= 400 && response.status < 500) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        return response;
       }
       
     } catch (error) {
