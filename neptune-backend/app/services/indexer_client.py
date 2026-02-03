@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import requests
 
 from app.core.settings import settings
@@ -12,10 +13,18 @@ def _post(path: str, payload: dict) -> None:
     if not settings.indexer_enabled:
         return
     url = f"{settings.indexer_url}{path}"
-    try:
-        requests.post(url, json=payload, timeout=2)
-    except Exception as e:
-        logger.warning("Indexer request failed: %s", e)
+    attempts = 3
+    delay = 0.2
+    for attempt in range(attempts):
+        try:
+            requests.post(url, json=payload, timeout=2)
+            return
+        except Exception as e:
+            if attempt == attempts - 1:
+                logger.warning("Indexer request failed: %s", e)
+                return
+            time.sleep(delay)
+            delay *= 2
 
 
 def notify_note_upsert(note_id: int) -> None:
