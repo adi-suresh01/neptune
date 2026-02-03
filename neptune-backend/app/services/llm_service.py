@@ -14,6 +14,7 @@ class LLMService:
     def __init__(self, model_name: str | None = None):
         self.model_name = model_name or settings.ollama_model
         self.ollama_url = settings.ollama_url
+        self.current_endpoint = settings.ollama_url
         self._checked_models = False
         self._failure_count = 0
         self._cooldown_until: datetime | None = None
@@ -25,8 +26,8 @@ class LLMService:
         self._metrics_lock = threading.Lock()
         self._metrics = {"calls": 0, "batches": 0, "failures": 0}
         self.logger.info("LLM service configured with model %s", self.model_name)
-        self.logger.info("LLM endpoint: %s", self.ollama_url)
-        if settings.ollama_shared and "localhost" in self.ollama_url:
+        self.logger.info("LLM endpoint: %s", self.current_endpoint)
+        if settings.ollama_shared and "localhost" in self.current_endpoint:
             self.logger.warning("OLLAMA_SHARED is enabled but endpoint is localhost")
 
     def _maybe_check_models(self) -> None:
@@ -36,7 +37,7 @@ class LLMService:
 
         try:
             response = self.session.get(
-                f"{self.ollama_url}/api/tags",
+                f"{self.current_endpoint}/api/tags",
                 timeout=min(settings.ollama_timeout_seconds, 10),
             )
             if response.status_code == 200:
@@ -93,7 +94,7 @@ class LLMService:
                         self._metrics["calls"] += 1
                     self.logger.info("Calling Ollama with model %s (attempt %s)", self.model_name, attempt + 1)
                     response = self.session.post(
-                        f"{self.ollama_url}/api/generate",
+                        f"{self.current_endpoint}/api/generate",
                         json=request_data,
                         timeout=(
                             settings.ollama_connect_timeout_seconds,
@@ -207,7 +208,7 @@ class LLMService:
     def healthcheck(self) -> Dict[str, Any]:
         try:
             response = self.session.get(
-                f"{self.ollama_url}/api/tags",
+                f"{self.current_endpoint}/api/tags",
                 timeout=min(settings.ollama_timeout_seconds, 5),
             )
             ok = response.status_code == 200
@@ -242,6 +243,12 @@ class LLMService:
             if a and b:
                 results.append({"a": a, "b": b, "score": max(0.0, min(1.0, score_val))})
         return results
+
+    def set_endpoint(self, endpoint: str) -> None:
+        self.current_endpoint = endpoint
+
+    def get_endpoint(self) -> str:
+        return self.current_endpoint
 
 # Create a singleton instance
 llm_service = LLMService()
