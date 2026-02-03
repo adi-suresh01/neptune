@@ -14,8 +14,7 @@ from datetime import datetime
 from app.services.note_content import store_note_content, load_note_content
 from app.services.revisions import create_revision
 from app.services.search import index_note
-from app.services.embeddings import upsert_embedding, delete_embedding
-from app.services.knowledge_graph import invalidate_cache
+from app.services.indexer_client import notify_note_upsert, notify_note_delete
 import logging
 
 logger = logging.getLogger(__name__)
