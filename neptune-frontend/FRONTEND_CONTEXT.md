@@ -38,6 +38,9 @@ This frontend is a Next.js app with a client-side UI for notes, filesystem, and 
 - Embeddings:
   - `POST /api/embeddings/backfill`
   - `GET /api/embeddings/related/{file_id}`
+- LLM endpoint:
+  - `GET /api/llm/endpoint`
+  - `POST /api/llm/endpoint`
 - Search:
   - `GET /api/search?q=...`
 
