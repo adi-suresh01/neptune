@@ -6,7 +6,7 @@ import { OrbitControls, Text, Billboard } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
-import { Loader2, RefreshCw, Zap, Network } from "lucide-react";
+import { Loader2, RefreshCw, Network } from "lucide-react";
 import { api } from "@/lib/api";
 
 const HoverPopup = ({ topic, relatedNotes, position, onNoteClick, onMouseEnter, onMouseLeave }) => {
