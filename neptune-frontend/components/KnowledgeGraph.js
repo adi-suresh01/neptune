@@ -506,27 +506,23 @@ function KnowledgeGraph({ onSelectNote }) {
   useEffect(() => {
     let statusInterval;
     
-    if (generationStatus.is_generating) {
-      statusInterval = setInterval(async () => {
-        try {
-          const response = await api.knowledgeGraph.status();
-          const status = await response.json();
-          
-          setGenerationStatus(status.generation_status || { is_generating: false, progress: "idle" });
-          
-          if (!status.generation_status.is_generating && status.has_cached_graph) {
-            fetchKnowledgeGraph(false);
-          }
-        } catch (err) {
-          console.error("Error checking status:", err);
+    statusInterval = setInterval(async () => {
+      try {
+        const response = await api.knowledgeGraph.status();
+        const status = await response.json();
+        setGenerationStatus(status.generation_status || { is_generating: false, progress: "idle" });
+        if (status.has_cached_graph) {
+          fetchKnowledgeGraph(false);
         }
-      }, 2000);
-    }
+      } catch (err) {
+        console.error("Error checking status:", err);
+      }
+    }, 2500);
     
     return () => {
       if (statusInterval) clearInterval(statusInterval);
     };
-  }, [generationStatus.is_generating]);
+  }, []);
 
   const handleSelectNode = () => {};
 
@@ -656,40 +652,19 @@ function KnowledgeGraph({ onSelectNote }) {
       <div className="w-full h-full flex flex-col items-center justify-center bg-[#050a1c] text-gray-400">
         <Network className="w-16 h-16 mb-4 text-gray-500" />
         <p className="text-lg mb-2">No knowledge graph available</p>
-        <p className="text-sm mb-4">Add some notes to generate your knowledge map</p>
-        <button 
-          className="px-6 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition flex items-center space-x-2"
-          onClick={handleRefreshGraph}
-          disabled={refreshing}
-        >
-          {refreshing ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Generating...</span>
-            </>
-          ) : (
-            <>
-              <Zap className="w-4 h-4" />
-              <span>Generate Knowledge Graph</span>
-            </>
-          )}
-        </button>
+        <p className="text-sm">Add notes to generate your knowledge map</p>
       </div>
     );
   }
 
   return (
     <div className="w-full h-full bg-[#050a1c] relative">
-      <div className="absolute top-4 right-4 z-10 space-x-2">
-        <button
-          onClick={handleRefreshGraph}
-          disabled={refreshing}
-          className="px-3 py-1 bg-blue-700 rounded text-sm text-white hover:bg-blue-600 transition disabled:opacity-50 flex items-center space-x-1"
-        >
-          <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
-          <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
-        </button>
-      </div>
+      {refreshing && (
+        <div className="absolute top-4 right-4 z-10 px-3 py-1 bg-blue-700 rounded text-sm text-white flex items-center space-x-1">
+          <RefreshCw className="w-3 h-3 animate-spin" />
+          <span>Refreshing...</span>
+        </div>
+      )}
       
       <Canvas 
         camera={{ 
