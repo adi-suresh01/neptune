@@ -11,6 +11,9 @@ cleanup() {
   if [[ -n "${BACKEND_PID:-}" ]]; then
     kill "$BACKEND_PID" >/dev/null 2>&1 || true
   fi
+  if [[ -n "${INDEXER_PID:-}" ]]; then
+    kill "$INDEXER_PID" >/dev/null 2>&1 || true
+  fi
   if [[ -n "${FRONTEND_PID:-}" ]]; then
     kill "$FRONTEND_PID" >/dev/null 2>&1 || true
   fi
