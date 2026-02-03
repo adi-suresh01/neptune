@@ -208,4 +208,10 @@ export const api = {
       return apiRequest(`/api/embeddings/related/${fileId}${params}`);
     },
   },
+
+  llm: {
+    getEndpoint: () => apiRequest('/api/llm/endpoint'),
+    setEndpoint: (endpoint: string) =>
+      apiRequest('/api/llm/endpoint', { method: 'POST', body: JSON.stringify({ endpoint }) }),
+  },
 };
