@@ -41,6 +41,10 @@ const Home = () => {
   const [, setParent] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
+  const [llmMode, setLlmMode] = useState<"local" | "hosted">("local");
+  const [localEndpoint, setLocalEndpoint] = useState("http://localhost:11434");
+  const [hostedEndpoint, setHostedEndpoint] = useState("");
+  const [llmStatus, setLlmStatus] = useState<"idle" | "saving" | "error">("idle");
 
   // Check backend health on startup
   useEffect(() => {
@@ -81,6 +85,37 @@ const Home = () => {
     
     checkBackend();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedMode = window.localStorage.getItem("neptune.llm.mode");
+    const savedLocal = window.localStorage.getItem("neptune.llm.local");
+    const savedHosted = window.localStorage.getItem("neptune.llm.hosted");
+    if (savedMode === "local" || savedMode === "hosted") setLlmMode(savedMode);
+    if (savedLocal) setLocalEndpoint(savedLocal);
+    if (savedHosted) setHostedEndpoint(savedHosted);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("neptune.llm.mode", llmMode);
+    window.localStorage.setItem("neptune.llm.local", localEndpoint);
+    window.localStorage.setItem("neptune.llm.hosted", hostedEndpoint);
+  }, [llmMode, localEndpoint, hostedEndpoint]);
+
+  const applyLlmEndpoint = async (endpoint: string) => {
+    try {
+      setLlmStatus("saving");
+      const res = await api.llm.setEndpoint(endpoint);
+      if (!res.ok) {
+        throw new Error(`Failed to update LLM endpoint: ${res.status}`);
+      }
+      setLlmStatus("idle");
+    } catch (err) {
+      console.error("Failed to update LLM endpoint:", err);
+      setLlmStatus("error");
+    }
+  };
 
   const refreshFileSystem = () => {
     setRefreshKey((prev) => prev + 1);
@@ -318,6 +353,55 @@ const Home = () => {
         </div>
 
         <div className="p-4 border-t border-gray-700">
+          <div className="text-xs text-gray-400 mb-3">LLM Source</div>
+          <div className="flex items-center space-x-2 mb-2">
+            <Button
+              onClick={() => {
+                setLlmMode("local");
+                applyLlmEndpoint(localEndpoint);
+              }}
+              variant={llmMode === "local" ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+            >
+              Local
+            </Button>
+            <Button
+              onClick={() => {
+                setLlmMode("hosted");
+                if (hostedEndpoint) applyLlmEndpoint(hostedEndpoint);
+              }}
+              variant={llmMode === "hosted" ? "default" : "outline"}
+              size="sm"
+              className="flex-1"
+            >
+              Hosted
+            </Button>
+          </div>
+          <div className="space-y-2 mb-3">
+            <Input
+              value={llmMode === "local" ? localEndpoint : hostedEndpoint}
+              onChange={(e) =>
+                llmMode === "local"
+                  ? setLocalEndpoint(e.target.value)
+                  : setHostedEndpoint(e.target.value)
+              }
+              placeholder={llmMode === "local" ? "http://localhost:11434" : "https://your-ollama-host"}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() =>
+                applyLlmEndpoint(llmMode === "local" ? localEndpoint : hostedEndpoint)
+              }
+            >
+              Apply
+            </Button>
+            {llmStatus === "error" && (
+              <div className="text-xs text-red-400">Failed to update endpoint</div>
+            )}
+          </div>
           <div className="text-xs text-gray-400 mb-2">
             Current View: {showGraph ? "Knowledge Graph" : "Notes Editor"}
           </div>
