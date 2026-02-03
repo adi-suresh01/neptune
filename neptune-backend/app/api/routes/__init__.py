@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from .filesystem import router as filesystem_router
 from .knowledge_graph import router as knowledge_graph_router
 from .embeddings import router as embeddings_router
+from .llm import router as llm_router
 from .revisions import router as revisions_router
 from .search import router as search_router
 from .system import router as system_router
@@ -15,6 +16,7 @@ router = APIRouter()
 router.include_router(filesystem_router, prefix="/filesystem", tags=["filesystem"])
 router.include_router(knowledge_graph_router, prefix="/knowledge-graph", tags=["knowledge-graph"])
 router.include_router(embeddings_router, prefix="/embeddings", tags=["embeddings"])
+router.include_router(llm_router, prefix="/llm", tags=["llm"])
 router.include_router(revisions_router, prefix="/revisions", tags=["revisions"])
 router.include_router(search_router, prefix="/search", tags=["search"])
 router.include_router(system_router, prefix="/system", tags=["system"])
