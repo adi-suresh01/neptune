@@ -27,6 +27,7 @@ class EmbeddingResult:
 class EmbeddingService:
     def __init__(self) -> None:
         self.session = requests.Session()
+        self.current_endpoint = settings.ollama_url
 
     def embed(self, text: str) -> EmbeddingResult:
         payload = {
@@ -34,7 +35,7 @@ class EmbeddingService:
             "prompt": text[: settings.embedding_max_chars],
         }
         response = self.session.post(
-            f"{settings.ollama_url}/api/embeddings",
+            f"{self.current_endpoint}/api/embeddings",
             json=payload,
             timeout=(settings.ollama_connect_timeout_seconds, settings.ollama_timeout_seconds),
         )
@@ -42,6 +43,12 @@ class EmbeddingService:
         data = response.json()
         vector = data.get("embedding", [])
         return EmbeddingResult(vector=vector, dim=len(vector))
+
+    def set_endpoint(self, endpoint: str) -> None:
+        self.current_endpoint = endpoint
+
+    def get_endpoint(self) -> str:
+        return self.current_endpoint
 
 
 embedding_service = EmbeddingService()
