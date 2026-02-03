@@ -31,9 +31,14 @@ export DB_BACKEND=sqlite
 export HOST=127.0.0.1
 export PORT=8000
 export CORS_ALLOW_ALL=true
+export INDEXER_URL=http://127.0.0.1:8001
 
 python -m uvicorn app.main:app --reload >/tmp/neptune_backend.log 2>&1 &
 BACKEND_PID=$!
+
+echo "Starting Neptune indexer..."
+python -m uvicorn app.indexer_app:app --port 8001 --reload >/tmp/neptune_indexer.log 2>&1 &
+INDEXER_PID=$!
 
 echo "Starting Neptune frontend..."
 cd "$FRONTEND_DIR"
