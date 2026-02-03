@@ -54,7 +54,7 @@ async def system_status():
             "origins": settings.resolved_cors_origins(),
         },
         "llm": {
-            "endpoint": settings.ollama_url,
+            "endpoint": llm_service.get_endpoint(),
             "model": settings.ollama_model,
             "embed_model": settings.embedding_model,
             "temperature": settings.ollama_temperature,
