@@ -88,6 +88,13 @@
   - `POST /api/embeddings/backfill` (refresh missing embeddings)
   - `GET /api/embeddings/related/{file_id}` (top related notes)
 
+## LLM Endpoint Switching
+
+- Allows the frontend to toggle between local and hosted Ollama.
+- Endpoints:
+  - `GET /api/llm/endpoint`
+  - `POST /api/llm/endpoint` with `{ "endpoint": "http://localhost:11434" }`
+
 ## Revisions
 
 - Note revisions are saved automatically on update.

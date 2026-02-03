@@ -45,6 +45,7 @@ const Home = () => {
   const [localEndpoint, setLocalEndpoint] = useState("http://localhost:11434");
   const [hostedEndpoint, setHostedEndpoint] = useState("");
   const [llmStatus, setLlmStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [llmApplied, setLlmApplied] = useState(false);
 
   // Check backend health on startup
   useEffect(() => {
@@ -116,6 +117,14 @@ const Home = () => {
       setLlmStatus("error");
     }
   };
+
+  useEffect(() => {
+    if (!backendReady || llmApplied) return;
+    const endpoint = llmMode === "local" ? localEndpoint : hostedEndpoint;
+    if (!endpoint) return;
+    applyLlmEndpoint(endpoint);
+    setLlmApplied(true);
+  }, [backendReady, llmApplied, llmMode, localEndpoint, hostedEndpoint]);
 
   const refreshFileSystem = () => {
     setRefreshKey((prev) => prev + 1);
