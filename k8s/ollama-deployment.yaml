@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neptune-ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: neptune-ollama
+  template:
+    metadata:
+      labels:
+        app: neptune-ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - containerPort: 11434
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+      volumes:
+        - name: ollama-data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: neptune-ollama
+spec:
+  selector:
+    app: neptune-ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: 11434
