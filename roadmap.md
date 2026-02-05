@@ -67,6 +67,12 @@ Run production-like stack on your **Ubuntu MacBook server**.
 - **Primary**: Ubuntu MacBook server (k3s).
 - **Optional**: local dev on your Mac with kind/minikube.
 
+**Server Steps**
+- Install k3s with `scripts/k8s_bootstrap.sh`
+- Apply manifests with `scripts/k8s_deploy.sh`
+- Create TLS secret with `scripts/k8s_tls.sh`
+- Run migrations via `k8s/migrate-job.yaml`
+
 **K8s Services**
 - neptune-backend (Deployment + Service)
 - neptune-llm (Deployment + Service)
