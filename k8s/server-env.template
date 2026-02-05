@@ -1,0 +1,16 @@
+NEPTUNE_ENV=production
+NEPTUNE_MODE=server
+DB_BACKEND=postgres
+DATABASE_URL=postgresql://neptune:neptune_password@neptune-postgres:5432/neptune
+HOST=0.0.0.0
+PORT=8000
+CORS_ALLOW_ALL=true
+STORAGE_MODE=dual
+S3_ENDPOINT=http://neptune-minio:9000
+S3_ACCESS_KEY=neptune
+S3_SECRET_KEY=neptune_minio_password
+S3_BUCKET=neptune
+S3_PREFIX=neptune/
+OLLAMA_URL=http://neptune-ollama:11434
+OLLAMA_SHARED=true
+INDEXER_URL=http://neptune-indexer:8001
