@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neptune-indexer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: neptune-indexer
+  template:
+    metadata:
+      labels:
+        app: neptune-indexer
+    spec:
+      containers:
+        - name: indexer
+          image: neptune-backend:latest
+          command: ["python", "-m", "uvicorn", "app.indexer_app:app", "--host", "0.0.0.0", "--port", "8001"]
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - secretRef:
+                name: neptune-backend-secret
+            - configMapRef:
+                name: neptune-backend-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: neptune-indexer
+spec:
+  selector:
+    app: neptune-indexer
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
